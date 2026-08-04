@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVC - Student Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/supabase-config.js"></script>
+    <style>
+        :root { --sidebar-width: 280px; }
+        body { 
+            background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #042f2e 100%); 
+            min-height: 100vh; color: #ffffff; overflow-x: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .text-glow-emerald { color: #ffffff !important; text-shadow: 0 0 10px rgba(52, 211, 153, 0.8); }
+        .text-glow-blue { color: #7dd3fc !important; text-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
+        .subject-title-glow {
+            color: #ffffff !important;
+            text-shadow: 0 0 8px rgba(56, 189, 248, 0.9), 0 0 18px rgba(52, 211, 153, 0.8), 0 0 28px rgba(16, 185, 129, 0.6);
+        }
+        .app-wrapper { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: var(--sidebar-width); background: rgba(2, 44, 34, 0.98); backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(16, 185, 129, 0.3); display: flex; flex-direction: column;
+            position: fixed; top: 0; bottom: 0; left: 0; z-index: 1050; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar-brand { padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(16, 185, 129, 0.2); }
+        .sidebar-brand-logo { width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.5)); }
+        .sidebar-brand-title { font-size: 1.5rem; letter-spacing: 1px; }
+        .sidebar-brand-subtitle { font-size: 0.85rem; color: #34d399; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-user { padding: 1.25rem 1.5rem; background: rgba(16, 185, 129, 0.08); border-bottom: 1px solid rgba(16, 185, 129, 0.2); }
+        .sidebar-backdrop {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px);
+            z-index: 1040; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .sidebar-backdrop.show { opacity: 1; visibility: visible; }
+        .sidebar-menu { padding: 1rem 0; flex: 1; overflow-y: auto; }
+        .sidebar-accordion .accordion-item { background: transparent; border: none; }
+        .sidebar-accordion .accordion-button {
+            background: transparent; color: rgba(255, 255, 255, 0.85); padding: 0.8rem 1.5rem; font-weight: 600; box-shadow: none; border-left: 4px solid transparent;
+        }
+        .sidebar-accordion .accordion-button:not(.collapsed) { background: rgba(16, 185, 129, 0.15); color: #ffffff; border-left-color: #10b981; }
+        .sidebar-accordion .accordion-button::after { filter: invert(1); }
+        .sidebar-sub-menu { padding-left: 1rem; background: rgba(0, 0, 0, 0.2); }
+        .nav-item-link {
+            display: flex; align-items: center; padding: 0.75rem 1.5rem; color: rgba(255, 255, 255, 0.8); text-decoration: none; font-weight: 500; transition: all 0.2s ease; cursor: pointer;
+        }
+        .nav-item-link:hover, .nav-item-link.active { color: #34d399; background: rgba(16, 185, 129, 0.1); }
+        .nav-item-link i { font-size: 1.1rem; margin-right: 0.75rem; }
+        .sidebar-footer { padding: 1rem 1.5rem; border-top: 1px solid rgba(16, 185, 129, 0.2); }
+        .main-content {
+            margin-left: var(--sidebar-width); flex: 1; padding: 2rem; width: calc(100% - var(--sidebar-width)); transition: all 0.3s ease; position: relative; min-height: 100vh;
+        }
+        .watermark-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; user-select: none; z-index: 0; transition: opacity 0.3s ease;
+        }
+        .watermark-img { width: 320px; max-width: 80vw; height: auto; opacity: 0.15; filter: drop-shadow(0 0 15px rgba(52, 211, 153, 0.2)); }
+        .content-panel { display: none; position: relative; z-index: 2; }
+        .content-panel.active-panel { display: block; }
+        
+        /* Z-INDEX DROPDOWN FIX */
+        .glass-card { background: rgba(4, 47, 46, 0.75); backdrop-filter: blur(16px); border: 1.5px solid rgba(16, 185, 129, 0.35); border-radius: 16px; position: relative; }
+        .selector-card { position: relative; z-index: 1050 !important; }
+        .custom-dropdown-menu { 
+            background: #042f2e !important; border: 1.5px solid #10b981 !important; max-height: 320px; overflow-y: auto; 
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9); z-index: 9999 !important; position: absolute !important; 
+        }
+        #welcomeMessage, .glass-card-subject { position: relative; z-index: 1 !important; }
+
+        .glass-card-subject { backdrop-filter: blur(16px); border: 1.5px solid; border-radius: 16px; transition: transform 0.2s ease, box-shadow 0.2s ease; margin-bottom: 1.5rem; }
+        .glass-card-subject:hover { transform: translateY(-2px); }
+        .group-panel { background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; padding: 10px; height: 100%; }
+        .group-panel-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 6px; margin-bottom: 8px; }
+        .subgroup-header-clickable {
+            font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; color: #2dd4bf; background: rgba(255, 255, 255, 0.08); padding: 6px 10px; border-radius: 6px; margin-top: 6px; margin-bottom: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; border: 1px solid rgba(45, 212, 191, 0.2); transition: all 0.2s ease;
+        }
+        .subgroup-header-clickable:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(45, 212, 191, 0.5); color: #ffffff; }
+        .subgroup-header-clickable.active { background: rgba(16, 185, 129, 0.25); color: #ffffff; border-color: #10b981; }
+        .subgroup-header-clickable .toggle-icon { transition: transform 0.3s ease; font-size: 0.7rem; }
+        .subgroup-header-clickable.active .toggle-icon { transform: rotate(180deg); }
+        .term-records-collapse { display: none; padding-left: 4px; padding-right: 4px; margin-bottom: 6px; }
+        .form-control, .form-select { background: rgba(255, 255, 255, 0.08) !important; border: 1px solid rgba(16, 185, 129, 0.4) !important; color: #ffffff !important; text-transform: uppercase; }
+        .btn-glass-green { background: linear-gradient(135deg, #10b981 0%, #047857 100%); border: 1px solid rgba(52, 211, 153, 0.5); color: #ffffff; font-weight: 600; }
+        .badge-blue { background: rgba(2, 132, 199, 0.35); border: 1px solid #38bdf8; color: #ffffff !important; }
+        .table-glass-compact { color: #ffffff; font-size: 0.82rem; margin: 0; }
+        .table-glass-compact td { background: transparent; border-color: rgba(255, 255, 255, 0.1); padding: 4px 6px; color: #ffffff; }
+        .spinner-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 44, 34, 0.85); backdrop-filter: blur(10px); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column;
+        }
+        .modal-glass { background: rgba(4, 47, 46, 0.95); border: 1.5px solid rgba(16, 185, 129, 0.5); border-radius: 16px; color: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        @media (max-width: 991.98px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.show { transform: translateX(0); }
+            .main-content { margin-left: 0; width: 100%; padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay" class="spinner-overlay" style="display: none;">
+    <div class="spinner-border mb-3" style="width: 3rem; height: 3rem; color: #10b981;"></div>
+    <div class="text-glow-emerald fw-bold fs-5" id="loadingText">PROCESSING REQUEST...</div>
+</div>
+
+<!-- Center-Screen Popup Alert Modal -->
+<div class="modal fade" id="alertModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-glass p-3 text-center">
+            <div class="modal-body fs-5 text-glow-emerald" id="alertModalBody"></div>
+            <div class="mt-3"><button type="button" class="btn btn-glass-green px-4" data-bs-dismiss="modal">OK</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
+
+<div class="app-wrapper">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="d-flex align-items-center gap-2">
+                <img src="../logo.png" alt="Logo" class="sidebar-brand-logo" onerror="this.style.display='none'">
+                <h4 class="sidebar-brand-title text-glow-emerald fw-bold m-0">SVC</h4>
+            </div>
+            <div class="sidebar-brand-subtitle fw-bold mt-1">Student Portal</div>
+        </div>
+        
+        <div class="sidebar-user">
+            <div class="small text-white opacity-75">LOGGED IN AS</div>
+            <div class="fw-bold text-glow-blue text-truncate" id="sidebarUserName">Loading...</div>
+        </div>
+
+        <nav class="sidebar-menu">
+            <div class="accordion sidebar-accordion" id="sidebarMenuAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingAcademic">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAcademic" aria-expanded="false">
+                            <i class="bi bi-journals me-2"></i> Academic Records
+                        </button>
+                    </h2>
+                    <div id="collapseAcademic" class="accordion-collapse collapse" data-bs-parent="#sidebarMenuAccordion">
+                        <div class="sidebar-sub-menu">
+                            <a class="nav-item-link" onclick="switchView('viewAcademicDashboard', this)">
+                                <i class="bi bi-collection"></i> <span>Records Dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingSettings">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSettings" aria-expanded="false">
+                            <i class="bi bi-gear me-2"></i> Account Settings
+                        </button>
+                    </h2>
+                    <div id="collapseSettings" class="accordion-collapse collapse" data-bs-parent="#sidebarMenuAccordion">
+                        <div class="sidebar-sub-menu">
+                            <a class="nav-item-link" onclick="switchView('viewPasswordChange', this)">
+                                <i class="bi bi-key"></i> <span>Change Password</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button onclick="Auth.clear()" class="btn btn-danger w-100 btn-sm">
+                <i class="bi bi-box-arrow-right me-1"></i> LOGOUT
+            </button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="d-lg-none mb-3">
+            <button class="btn btn-glass-green btn-sm" type="button" onclick="toggleMobileSidebar()">
+                <i class="bi bi-list me-1"></i> MENU
+            </button>
+        </div>
+
+        <div class="watermark-container" id="watermarkContainer">
+            <img src="../logo.png" alt="St. Vincent College Logo" class="watermark-img" onerror="this.style.display='none'">
+        </div>
+
+        <div id="viewAcademicDashboard" class="content-panel">
+            <div class="glass-card selector-card p-4 mb-4 text-center">
+                <h5 class="text-glow-emerald fw-bold mb-3"><i class="bi bi-journals me-2"></i>ACADEMIC RECORDS SELECTION</h5>
+                <div class="d-flex justify-content-center gap-3 flex-wrap align-items-center">
+                    <button class="btn btn-outline-success text-white px-4 py-2" onclick="renderAllSubjects()">
+                        <i class="bi bi-collection me-1"></i> VIEW ALL SUBJECTS
+                    </button>
+
+                    <div class="dropdown">
+                        <button class="btn btn-outline-success text-white dropdown-toggle px-4 py-2" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-calendar-range me-1"></i> SELECT SCHOOL YEAR / SEMESTER
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark custom-dropdown-menu" id="dropdownTerm">
+                            <li><span class="dropdown-item text-white opacity-75">Loading...</span></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="dropdown">
+                        <button class="btn btn-outline-success text-white dropdown-toggle px-4 py-2" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-journal-bookmark me-1"></i> SELECT SPECIFIC SUBJECT
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark custom-dropdown-menu" id="dropdownSubject">
+                            <li><span class="dropdown-item text-white opacity-75">Loading...</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="welcomeMessage" class="glass-card p-5 text-center my-4">
+                <i class="bi bi-arrow-up-circle fs-1 text-glow-emerald mb-3"></i>
+                <h4 class="text-white text-glow-blue">PLEASE CHOOSE A VIEW OPTION ABOVE</h4>
+                <p class="text-white opacity-75">Select "VIEW ALL SUBJECTS", filter by "SCHOOL YEAR / SEMESTER", or choose a "SPECIFIC SUBJECT" to display academic grades and performance trends.</p>
+            </div>
+
+            <div id="cardsContainer"></div>
+        </div>
+
+        <div id="viewPasswordChange" class="content-panel">
+            <div class="glass-card p-4 my-4" style="max-width: 500px; margin: 0 auto;">
+                <h5 class="text-glow-emerald fw-bold mb-3"><i class="bi bi-shield-lock me-2"></i>CHANGE DEFAULT PASSWORD</h5>
+                <form id="formChangePassword">
+                    <div class="mb-3">
+                        <label class="form-label text-white">CURRENT PASSWORD</label>
+                        <div class="input-group">
+                            <input type="password" id="old_pass" class="form-control" required style="text-transform: uppercase;">
+                            <button class="btn btn-outline-success text-white" type="button" onclick="togglePass('old_pass', this)"><i class="bi bi-eye"></i></button>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-white">NEW PASSWORD</label>
+                        <div class="input-group">
+                            <input type="password" id="new_pass" class="form-control" required style="text-transform: uppercase;">
+                            <button class="btn btn-outline-success text-white" type="button" onclick="togglePass('new_pass', this)"><i class="bi bi-eye"></i></button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-glass-green w-100 py-2">UPDATE PASSWORD</button>
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+Auth.requireAuth('student');
+const student = Auth.getUser();
+document.getElementById('sidebarUserName').innerText = `${student.firstname || ''} ${student.lastname || ''}`;
+
+let rawRecords = [];
+let teacherMap = {};
+let chartInstances = {};
+let chartMasterData = {};
+
+const cardThemes = [
+    'background: linear-gradient(135deg, rgba(6, 78, 59, 0.85) 0%, rgba(2, 44, 34, 0.95) 100%); border-color: #10b981; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);',
+    'background: linear-gradient(135deg, rgba(2, 132, 199, 0.8) 0%, rgba(3, 105, 161, 0.9) 100%); border-color: #38bdf8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);',
+    'background: linear-gradient(135deg, rgba(15, 118, 110, 0.85) 0%, rgba(19, 78, 74, 0.95) 100%); border-color: #2dd4bf; box-shadow: 0 0 15px rgba(45, 212, 191, 0.4);',
+    'background: linear-gradient(135deg, rgba(30, 58, 138, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%); border-color: #60a5fa; box-shadow: 0 0 15px rgba(96, 165, 250, 0.4);',
+    'background: linear-gradient(135deg, rgba(21, 128, 61, 0.85) 0%, rgba(20, 83, 45, 0.95) 100%); border-color: #4ade80; box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);',
+    'background: linear-gradient(135deg, rgba(14, 116, 144, 0.85) 0%, rgba(22, 78, 99, 0.95) 100%); border-color: #22d3ee; box-shadow: 0 0 15px rgba(34, 211, 238, 0.4);'
+];
+
+function showAlert(msg) {
+    document.getElementById('alertModalBody').innerText = msg;
+    new bootstrap.Modal(document.getElementById('alertModal')).show();
+}
+
+function showLoading(show, message = "PROCESSING REQUEST...") { 
+    document.getElementById('loadingText').innerText = message;
+    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none'; 
+}
+
+function autoCapitalizeInputs() {
+    document.querySelectorAll('input[type="text"]').forEach(input => {
+        input.style.textTransform = 'uppercase';
+        input.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    });
+}
+
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (sidebar) sidebar.classList.toggle('show');
+    if (backdrop) backdrop.classList.toggle('show');
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (sidebar) sidebar.classList.remove('show');
+    if (backdrop) backdrop.classList.remove('show');
+}
+
+window.addEventListener('resize', function() {
+    if (window.innerWidth >= 992) closeMobileSidebar();
+});
+
+(function() {
+    const INACTIVITY_LIMIT = 3 * 60 * 1000;
+    let inactivityTimer;
+    function resetInactivityTimer() {
+        clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => { Auth.clear(); }, INACTIVITY_LIMIT);
+    }
+    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }));
+    resetInactivityTimer();
+})();
+
+function getSemesterLabel(sem) {
+    if (sem == '1' || sem === 'First Semester') return 'First Semester';
+    if (sem == '2' || sem === 'Second Semester') return 'Second Semester';
+    if (sem == '3' || sem === 'Summer') return 'Summer';
+    return sem;
+}
+
+function parseScoreToPercentage(result_str) {
+    const clean_str = String(result_str).trim();
+    if (clean_str.includes('/')) {
+        const parts = clean_str.split('/');
+        const score = parseFloat(parts[0].replace(/[^0-9.]/g, ''));
+        const total = parseFloat(parts[1].replace(/[^0-9.]/g, ''));
+        if (total > 0) return Math.round((score / total) * 100);
+    }
+    const num = clean_str.replace(/[^0-9.]/g, '');
+    if (num !== '' && !isNaN(num)) return parseFloat(num);
+    return null;
+}
+
+function getGradeBadgeHTML(result_str) {
+    const pct = parseScoreToPercentage(result_str);
+    if (pct === null) return `<span class="badge bg-secondary text-white fw-bold">${result_str}</span>`;
+    if (pct >= 40) return `<span class="badge bg-success bg-opacity-75 text-white border border-success fw-bold">${result_str}</span>`;
+    if (pct >= 31 && pct < 40) return `<span class="badge bg-warning bg-opacity-75 text-dark border border-warning fw-bold">${result_str}</span>`;
+    return `<span class="badge bg-danger bg-opacity-75 text-white border border-danger fw-bold">${result_str}</span>`;
+}
+
+function clearMainView() {
+    document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active-panel'));
+    document.querySelectorAll('.sidebar-sub-menu .nav-item-link').forEach(l => l.classList.remove('active'));
+    document.getElementById('watermarkContainer').style.display = 'flex';
+}
+
+function switchView(viewId, element) {
+    clearMainView();
+    document.getElementById(viewId).classList.add('active-panel');
+    if (element) element.classList.add('active');
+    document.getElementById('watermarkContainer').style.display = 'none';
+    closeMobileSidebar();
+}
+
+function togglePass(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') { input.type = 'text'; icon.className = 'bi bi-eye-slash'; }
+    else { input.type = 'password'; icon.className = 'bi bi-eye'; }
+}
+
+async function initializeDashboard() {
+    showLoading(true, "LOADING STUDENT DASHBOARD...");
+    
+    const [recordsRes, teachersRes] = await Promise.all([
+        _supabase.from('tblrecords')
+            .select('*')
+            .eq('studentid', student.studentid)
+            .order('schoolyear', { ascending: false })
+            .order('semester', { ascending: true }),
+        _supabase.from('tblteacheruser')
+            .select('teacherid, firstname, lastname')
+    ]);
+
+    if (!recordsRes.error && recordsRes.data) {
+        rawRecords = recordsRes.data;
+    }
+
+    if (!teachersRes.error && teachersRes.data) {
+        teachersRes.data.forEach(t => {
+            teacherMap[t.teacherid] = `${t.lastname || ''}, ${t.firstname || ''}`.trim();
+        });
+    }
+
+    populateDropdowns();
+    showLoading(false);
+}
+
+function populateDropdowns() {
+    const termSet = new Set(), subjectSet = new Set();
+    const termsArray = [], subjectsArray = [];
+
+    rawRecords.forEach(r => {
+        const termKey = `${r.schoolyear}|${r.semester}`;
+        if (!termSet.has(termKey)) { termSet.add(termKey); termsArray.push({ sy: r.schoolyear, sem: r.semester }); }
+        if (!subjectSet.has(r.subjects)) { subjectSet.add(r.subjects); subjectsArray.push(r.subjects); }
+    });
+
+    const termDropdown = document.getElementById('dropdownTerm');
+    termDropdown.innerHTML = '';
+    termsArray.forEach(t => {
+        termDropdown.innerHTML += `<li><a class="dropdown-item text-white" href="#" onclick="renderFiltered('TERM', '${t.sy}', '${t.sem}'); return false;"><i class="bi bi-calendar-check me-2"></i>SY: ${t.sy} | ${getSemesterLabel(t.sem)}</a></li>`;
+    });
+
+    const subDropdown = document.getElementById('dropdownSubject');
+    subDropdown.innerHTML = '';
+    subjectsArray.sort().forEach(s => {
+        subDropdown.innerHTML += `<li><a class="dropdown-item text-white" href="#" onclick="renderFiltered('SUBJECT', '${s}'); return false;"><i class="bi bi-book me-2"></i>${s}</a></li>`;
+    });
+}
+
+function renderAllSubjects() {
+    document.getElementById('welcomeMessage').style.display = 'none';
+    buildCards(rawRecords);
+}
+
+function renderFiltered(type, p1, p2) {
+    document.getElementById('welcomeMessage').style.display = 'none';
+    let filtered = [];
+    if (type === 'TERM') filtered = rawRecords.filter(r => r.schoolyear === p1 && String(r.semester) === String(p2));
+    else if (type === 'SUBJECT') filtered = rawRecords.filter(r => r.subjects === p1);
+    buildCards(filtered);
+}
+
+function buildCards(recordsToDisplay) {
+    const container = document.getElementById('cardsContainer');
+    container.innerHTML = '';
+    Object.values(chartInstances).forEach(c => c.destroy());
+    chartInstances = {}; chartMasterData = {};
+
+    const grouped = {};
+    recordsToDisplay.forEach(r => {
+        const key = `${r.subjects}_${r.schoolyear}_${r.semester}`;
+        if (!grouped[key]) {
+            grouped[key] = { 
+                subject: r.subjects, 
+                sy: r.schoolyear, 
+                sem: r.semester, 
+                teacherid: r.teacherid, 
+                records: [] 
+            };
+        }
+        grouped[key].records.push(r);
+    });
+
+    let cardIndex = 0;
+    Object.values(grouped).forEach(group => {
+        const theme = cardThemes[cardIndex % cardThemes.length];
+        const cardId = `card_${cardIndex}`;
+        const chartId = `chart_${cardIndex}`;
+        cardIndex++;
+
+        const teacherName = teacherMap[group.teacherid] || group.teacherid || 'UNASSIGNED';
+
+        const quizzes = {}, exams = {}, terms = {};
+        const fullChartItems = [];
+
+        group.records.forEach(r => {
+            const comp = (r.component || '').toUpperCase();
+            let period = 'OTHER';
+            if (comp.includes('PRELIM')) period = 'PRELIM';
+            else if (comp.includes('MIDTERM')) period = 'MIDTERM';
+            else if (comp.includes('FINAL')) period = 'FINALS';
+
+            const score = parseScoreToPercentage(r.result);
+            if (score !== null) fullChartItems.push({ label: r.component, value: score, period: period });
+
+            if (comp.includes('QUIZ')) { if(!quizzes[period]) quizzes[period]=[]; quizzes[period].push(r); }
+            else if (comp.includes('EXAM')) { if(!exams[period]) exams[period]=[]; exams[period].push(r); }
+            else { if(!terms[period]) terms[period]=[]; terms[period].push(r); }
+        });
+
+        let html = `
+        <div id="${cardId}" class="glass-card-subject p-3" style="${theme}">
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-light border-opacity-25 flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold m-0 text-white subject-title-glow"><i class="bi bi-journal-check me-2"></i>${group.subject}</h5>
+                    <div class="small text-white opacity-75 mt-1"><i class="bi bi-person-badge me-1"></i>INSTRUCTOR: <strong>${teacherName}</strong></div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-light py-0 px-2" onclick="toggleCardAccordions('${cardId}', true)"><i class="bi bi-arrows-expand me-1"></i>EXPAND ALL</button>
+                        <button type="button" class="btn btn-outline-light py-0 px-2" onclick="toggleCardAccordions('${cardId}', false)"><i class="bi bi-arrows-collapse me-1"></i>COLLAPSE ALL</button>
+                    </div>
+                    <span class="badge badge-blue">SY: ${group.sy} | ${getSemesterLabel(group.sem)}</span>
+                </div>
+            </div>
+            <div class="row g-2 align-items-stretch">
+                ${buildColumn('QUIZZES', quizzes, 'bi-card-checklist', 'text-glow-emerald', cardId)}
+                ${buildColumn('MAJOR EXAMS', exams, 'bi-file-earmark-easel', 'text-glow-blue', cardId)}
+                ${buildColumn('TERM GRADES', terms, 'bi-award', 'text-warning', cardId)}
+                <div class="col-lg-3 col-md-6">
+                    <div class="group-panel d-flex flex-column justify-content-between">
+                        <div class="group-panel-title text-white"><i class="bi bi-graph-up me-1"></i> PERFORMANCE TREND</div>
+                        <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+                            ${fullChartItems.length > 0 ? `<canvas id="${chartId}" style="max-height: 140px; width: 100%;"></canvas>` : `<div class="text-white opacity-75 fs-7">NO PROGRESS DATA</div>`}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        container.innerHTML += html;
+
+        if (fullChartItems.length > 0) {
+            chartMasterData[chartId] = { card_id: cardId, items: fullChartItems };
+            setTimeout(() => {
+                chartInstances[chartId] = new Chart(document.getElementById(chartId).getContext('2d'), {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: 'Score (%)', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.25)', borderWidth: 2, fill: true, tension: 0.3, pointBackgroundColor: '#10b981' }] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#fff', font: { size: 8 } } }, x: { ticks: { color: '#fff', font: { size: 8 } } } }, plugins: { legend: { display: false } } }
+                });
+                updateChartDisplay(cardId);
+            }, 50);
+        }
+    });
+}
+
+function buildColumn(title, dataGroup, icon, colorClass, cardId) {
+    let content = '';
+    const keys = Object.keys(dataGroup);
+    if (keys.length === 0) content = `<div class="text-white opacity-75 text-center fs-7 py-3">NO DATA</div>`;
+    else {
+        keys.forEach(period => {
+            let rows = '';
+            dataGroup[period].forEach(r => {
+                rows += `<tr><td class="text-white">${r.component}</td><td class="text-end">${getGradeBadgeHTML(r.result)}</td></tr>`;
+            });
+            content += `
+            <div class="subgroup-header-clickable" data-period="${period}" data-card-id="${cardId}" onclick="toggleTermRecords(this)">
+                <span>${period} <small class="opacity-75">(${dataGroup[period].length})</small></span><i class="bi bi-chevron-down toggle-icon"></i>
+            </div>
+            <div class="term-records-collapse"><table class="table table-glass-compact"><tbody>${rows}</tbody></table></div>`;
+        });
+    }
+    return `<div class="col-lg-3 col-md-6 mb-2"><div class="group-panel"><div class="group-panel-title ${colorClass}"><i class="bi ${icon} me-1"></i> ${title}</div>${content}</div></div>`;
+}
+
+function toggleTermRecords(el) {
+    const recordsDiv = el.nextElementSibling;
+    if (recordsDiv.style.display !== 'block') { recordsDiv.style.display = 'block'; el.classList.add('active'); }
+    else { recordsDiv.style.display = 'none'; el.classList.remove('active'); }
+    updateChartDisplay(el.getAttribute('data-card-id'));
+}
+
+function toggleCardAccordions(cardId, expand) {
+    document.getElementById(cardId).querySelectorAll('.subgroup-header-clickable').forEach(h => {
+        h.nextElementSibling.style.display = expand ? 'block' : 'none';
+        expand ? h.classList.add('active') : h.classList.remove('active');
+    });
+    updateChartDisplay(cardId);
+}
+
+function updateChartDisplay(cardId) {
+    const chartId = Object.keys(chartMasterData).find(cId => chartMasterData[cId].card_id === cardId);
+    if (!chartId || !chartInstances[chartId]) return;
+    const card = document.getElementById(cardId);
+    if (!card) return;
+
+    const activePeriods = new Set(Array.from(card.querySelectorAll('.subgroup-header-clickable.active')).map(h => h.getAttribute('data-period').toUpperCase()));
+    const masterData = chartMasterData[chartId].items;
+    const filtered = activePeriods.size > 0 ? masterData.filter(item => activePeriods.has(item.period)) : [];
+    const chart = chartInstances[chartId];
+    chart.data.labels = filtered.map(item => item.label);
+    chart.data.datasets[0].data = filtered.map(item => item.value);
+    chart.update();
+}
+
+document.getElementById('formChangePassword').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showLoading(true, "UPDATING PASSWORD...");
+    const oldPass = document.getElementById('old_pass').value;
+    const newPass = document.getElementById('new_pass').value;
+
+    const { data, error } = await _supabase.from('tblstudentuser').select('password').eq('studentid', student.studentid).single();
+    if (error || data.password !== oldPass) {
+        showLoading(false); 
+        showAlert("INCORRECT CURRENT PASSWORD."); 
+        return;
+    }
+    const updateRes = await _supabase.from('tblstudentuser').update({ password: newPass }).eq('studentid', student.studentid);
+    showLoading(false);
+    if (updateRes.error) showAlert("FAILED TO UPDATE PASSWORD.");
+    else showAlert("PASSWORD CHANGED SUCCESSFULLY!");
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    autoCapitalizeInputs();
+    document.querySelectorAll('.sidebar-accordion .accordion-collapse').forEach(el => { el.addEventListener('hidden.bs.collapse', clearMainView); });
+    document.querySelectorAll('.nav-item-link').forEach(link => { link.addEventListener('click', closeMobileSidebar); });
+    initializeDashboard();
+});
+</script>
+</body>
+</html>

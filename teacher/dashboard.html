@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVC - Teacher Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/supabase-config.js"></script>
+    <style>
+        :root { --sidebar-width: 280px; }
+        body { 
+            background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #042f2e 100%); 
+            min-height: 100vh; color: #ffffff; overflow-x: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .text-glow-emerald { color: #ffffff !important; text-shadow: 0 0 10px rgba(52, 211, 153, 0.8); }
+        .text-glow-blue { color: #7dd3fc !important; text-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
+
+        .app-wrapper { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: var(--sidebar-width); background: rgba(2, 44, 34, 0.98); backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(16, 185, 129, 0.3); display: flex; flex-direction: column;
+            position: fixed; top: 0; bottom: 0; left: 0; z-index: 1050; transition: transform 0.3s ease;
+        }
+        .sidebar-brand { padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(16, 185, 129, 0.2); }
+        .sidebar-brand-logo { width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.5)); }
+        .sidebar-brand-title { font-size: 1.5rem; letter-spacing: 1px; }
+        .sidebar-brand-subtitle { font-size: 0.85rem; color: #34d399; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-user { padding: 1.25rem 1.5rem; background: rgba(16, 185, 129, 0.08); border-bottom: 1px solid rgba(16, 185, 129, 0.2); }
+        
+        .sidebar-backdrop {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px);
+            z-index: 1040; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .sidebar-backdrop.show { opacity: 1; visibility: visible; }
+
+        .sidebar-menu { padding: 1rem 0; flex: 1; overflow-y: auto; }
+        .sidebar-accordion .accordion-item { background: transparent; border: none; }
+        .sidebar-accordion .accordion-button {
+            background: transparent; color: rgba(255, 255, 255, 0.85); padding: 0.8rem 1.5rem; font-weight: 600; box-shadow: none; border-left: 4px solid transparent;
+        }
+        .sidebar-accordion .accordion-button:not(.collapsed) { background: rgba(16, 185, 129, 0.15); color: #ffffff; border-left-color: #10b981; }
+        .sidebar-accordion .accordion-button::after { filter: invert(1); }
+        .sidebar-sub-menu { padding-left: 1rem; background: rgba(0, 0, 0, 0.2); }
+        .nav-item-link {
+            display: flex; align-items: center; padding: 0.75rem 1.5rem; color: rgba(255, 255, 255, 0.8); text-decoration: none; font-weight: 500; transition: all 0.2s ease; cursor: pointer;
+        }
+        .nav-item-link:hover, .nav-item-link.active { color: #34d399; background: rgba(16, 185, 129, 0.1); }
+        .nav-item-link i { font-size: 1.1rem; margin-right: 0.75rem; }
+        .sidebar-footer { padding: 1rem 1.5rem; border-top: 1px solid rgba(16, 185, 129, 0.2); }
+
+        .main-content {
+            margin-left: var(--sidebar-width); flex: 1; padding: 2rem; width: calc(100% - var(--sidebar-width)); transition: all 0.3s ease; position: relative; min-height: 100vh;
+        }
+        .watermark-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; user-select: none; z-index: 0; transition: opacity 0.3s ease;
+        }
+        .watermark-img { width: 320px; max-width: 80vw; height: auto; opacity: 0.15; filter: drop-shadow(0 0 15px rgba(52, 211, 153, 0.2)); }
+
+        .content-panel { display: none; position: relative; z-index: 2; }
+        .content-panel.active-panel { display: block; }
+        .embedded-iframe { width: 100%; height: calc(100vh - 4rem); border: none; border-radius: 16px; background: rgba(4, 47, 46, 0.75); backdrop-filter: blur(16px); }
+
+        .glass-card { background: rgba(4, 47, 46, 0.75); backdrop-filter: blur(16px); border: 1.5px solid rgba(16, 185, 129, 0.35); border-radius: 16px; position: relative; }
+        .filter-card-wrapper { position: relative; z-index: 10; }
+        .grid-card-wrapper { position: relative; z-index: 1; }
+
+        .form-control, .form-select { background: rgba(255, 255, 255, 0.08) !important; border: 1px solid rgba(16, 185, 129, 0.4) !important; color: #ffffff !important; text-transform: uppercase; }
+        .form-select option { background: #022c22; color: #ffffff; }
+        .btn-glass-green { background: linear-gradient(135deg, #10b981 0%, #047857 100%); border: 1px solid rgba(52, 211, 153, 0.5); color: #ffffff; font-weight: 600; }
+        .btn-glass-blue { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border: 1px solid rgba(56, 189, 248, 0.5); color: #ffffff; font-weight: 600; }
+        .btn-glass-red { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); border: 1px solid rgba(248, 113, 113, 0.5); color: #ffffff; font-weight: 600; }
+        .badge-blue { background: rgba(2, 132, 199, 0.35); border: 1px solid #38bdf8; color: #ffffff !important; text-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
+
+        .table-glass { 
+            color: #ffffff !important; border-collapse: separate; border-spacing: 0; border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; overflow: hidden;
+        }
+        .table-glass th { background: rgba(16, 185, 129, 0.3) !important; color: #ffffff !important; border: 1px solid rgba(16, 185, 129, 0.35) !important; text-shadow: 0 0 6px rgba(52, 211, 153, 0.8); }
+        .table-glass td { background: rgba(2, 44, 34, 0.6) !important; border: 1px solid rgba(16, 185, 129, 0.35) !important; color: #ffffff !important; }
+        .table-glass tbody tr:hover td { background-color: rgba(16, 185, 129, 0.25) !important; }
+
+        .comp-dropdown-btn { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(16, 185, 129, 0.4); color: #ffffff; padding: 0.25rem 0.5rem; border-radius: 4px; text-align: left; width: 100%; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 0.875rem; }
+        .comp-dropdown-menu { background: #022c22; border: 1.5px solid rgba(16, 185, 129, 0.6); border-radius: 6px; padding: 0.5rem; max-height: 280px; overflow-y: auto; width: 100%; display: none; position: absolute; z-index: 1050; box-shadow: 0 10px 25px rgba(0,0,0,0.8); top: 100%; left: 0; }
+        .comp-dropdown-menu.show { display: block; }
+        .accordion-header-btn { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; width: 100%; text-align: left; padding: 0.3rem 0.5rem; font-weight: bold; border-radius: 4px; font-size: 0.8rem; margin-top: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .accordion-header-btn:hover { background: rgba(16, 185, 129, 0.3); }
+        .accordion-item-list { display: none; padding-left: 0.5rem; margin-top: 4px; margin-bottom: 4px; }
+        .accordion-item-list.open { display: block; }
+        .comp-opt-item { padding: 0.2rem 0.5rem; color: #ffffff; cursor: pointer; border-radius: 3px; font-size: 0.8rem; }
+        .comp-opt-item:hover { background: rgba(16, 185, 129, 0.4); }
+
+        .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 44, 34, 0.85); backdrop-filter: blur(8px); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; }
+        .modal-glass { background: rgba(4, 47, 46, 0.95); border: 1.5px solid rgba(16, 185, 129, 0.5); border-radius: 16px; color: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+
+        @media (max-width: 991.98px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.show { transform: translateX(0); }
+            .main-content { margin-left: 0; width: 100%; padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay" class="spinner-overlay">
+    <div class="spinner-border mb-3" style="width: 3rem; height: 3rem; color: #10b981;"></div>
+    <div class="text-glow-emerald fw-bold fs-5" id="loadingText">PROCESSING OPERATION...</div>
+</div>
+
+<!-- Center-Screen Popup Alert Modal -->
+<div class="modal fade" id="alertModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-glass p-3 text-center">
+            <div class="modal-body fs-5 text-glow-emerald" id="alertModalBody"></div>
+            <div class="mt-3"><button type="button" class="btn btn-glass-green px-4" data-bs-dismiss="modal">OK</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
+
+<div class="app-wrapper">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="d-flex align-items-center gap-2">
+                <img src="../logo.png" alt="Logo" class="sidebar-brand-logo" onerror="this.style.display='none'">
+                <h4 class="sidebar-brand-title text-glow-emerald fw-bold m-0">SVC</h4>
+            </div>
+            <div class="sidebar-brand-subtitle fw-bold mt-1">Teacher Portal</div>
+        </div>
+        
+        <div class="sidebar-user">
+            <div class="small text-white opacity-75">LOGGED IN AS</div>
+            <div class="fw-bold text-glow-blue text-truncate" id="teacherNameDisplay">Loading...</div>
+        </div>
+
+        <nav class="sidebar-menu">
+            <div class="accordion sidebar-accordion" id="sidebarMenuAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingDashboard">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDashboard">
+                            <i class="bi bi-speedometer2 me-2"></i> Dashboard & Records
+                        </button>
+                    </h2>
+                    <div id="collapseDashboard" class="accordion-collapse collapse" data-bs-parent="#sidebarMenuAccordion">
+                        <div class="sidebar-sub-menu">
+                            <a class="nav-item-link" onclick="switchView('viewUpload', this)">
+                                <i class="bi bi-cloud-upload"></i><span>Upload Records (CSV)</span>
+                            </a>
+                            <a class="nav-item-link" onclick="switchView('viewFilterGrid', this)">
+                                <i class="bi bi-funnel"></i><span>Filter View & Grid</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingNavigation">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNavigation">
+                            <i class="bi bi-compass me-2"></i> Navigation
+                        </button>
+                    </h2>
+                    <div id="collapseNavigation" class="accordion-collapse collapse" data-bs-parent="#sidebarMenuAccordion">
+                        <div class="sidebar-sub-menu">
+                            <a class="nav-item-link" onclick="switchView('viewActivityReport', this)">
+                                <i class="bi bi-person-check"></i><span>Activity Report</span>
+                            </a>
+                            <a class="nav-item-link" onclick="switchView('viewSearchStudent', this)">
+                                <i class="bi bi-search"></i><span>Search Student</span>
+                            </a>
+                            <a class="nav-item-link" onclick="switchView('viewEditProfile', this)">
+                                <i class="bi bi-gear"></i><span>Edit Profile</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button onclick="Auth.clear()" class="btn btn-danger w-100 btn-sm">
+                <i class="bi bi-box-arrow-right me-1"></i> LOGOUT
+            </button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="d-lg-none mb-3">
+            <button class="btn btn-glass-green btn-sm" type="button" onclick="toggleMobileSidebar()">
+                <i class="bi bi-list me-1"></i> MENU
+            </button>
+        </div>
+
+        <div class="watermark-container" id="watermarkContainer">
+            <img src="../logo.png" alt="St. Vincent College Logo" class="watermark-img" onerror="this.style.display='none'">
+        </div>
+
+        <!-- PANEL 1: CSV UPLOAD -->
+        <div id="viewUpload" class="content-panel mb-4">
+            <div class="glass-card p-4">
+                <h5 class="text-glow-emerald fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>UPLOAD RECORDS (CSV)</h5>
+                <form id="uploadCsvForm">
+                    <div class="mb-3">
+                        <input type="file" id="csvFileInput" class="form-control" accept=".csv" required>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <button type="submit" class="btn btn-glass-green px-4">UPLOAD & UPDATE</button>
+                        <a href="data:text/csv;charset=utf-8,studentid,teacherid,lastname,firstname,course,schedtag,subjects,component,result,schoolyear,semester%0A2025-0001,T-101,DELA CRUZ,JUAN,BSIT,SEC-A,CS101,QUIZ1,85,2025-2026,1" download="sample_template.csv" class="btn btn-glass-blue btn-sm">DOWNLOAD CSV TEMPLATE</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- PANEL 2: FILTER & GRID VIEW -->
+        <div id="viewFilterGrid" class="content-panel">
+            <div class="glass-card p-4 mb-4 filter-card-wrapper">
+                <h5 class="text-glow-emerald fw-bold mb-3"><i class="bi bi-funnel me-2"></i>FILTER VIEW</h5>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label text-white small">SCHOOL YEAR</label>
+                        <select id="filterSy" class="form-select form-select-sm"></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-white small">SEMESTER</label>
+                        <select id="filterSem" class="form-select form-select-sm">
+                            <option value="1">First Semester</option>
+                            <option value="2">Second Semester</option>
+                            <option value="3">Summer</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-white small">SUBJECT</label>
+                        <select id="filterSubject" class="form-select form-select-sm">
+                            <option value="">ALL SUBJECTS</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3" style="position: relative;">
+                        <label class="form-label text-white small">COMPONENT</label>
+                        <input type="hidden" id="selectedComponentInput" value="">
+                        <div class="comp-dropdown-btn" onclick="toggleComponentMenu(event)">
+                            <span id="selectedComponentText">ALL COMPONENTS</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </div>
+                        <div class="comp-dropdown-menu" id="compDropdownMenu">
+                            <div class="comp-opt-item fw-bold text-success" onclick="selectComponent('')">ALL COMPONENTS</div>
+                            <div id="componentGroupContainer"></div>
+                        </div>
+                    </div>
+                    <div class="col-12 mt-3">
+                        <button onclick="applyFilters()" class="btn btn-glass-green w-100 py-1"><i class="bi bi-filter"></i> APPLY FILTERS</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 grid-card-wrapper">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-glow-emerald fw-bold m-0"><i class="bi bi-table me-2"></i>STUDENT RECORDS GRID</h5>
+                    <button onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3">
+                        <i class="bi bi-trash me-1"></i> DELETE SELECTED RECORDS
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-glass text-center align-middle" id="recordsGridTable">
+                        <thead>
+                            <tr id="gridHeaderRow">
+                                <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>
+                                <th>STUDENT ID</th>
+                                <th>NAME</th>
+                                <th>COURSE</th>
+                                <th>SUBJECT</th>
+                                <th>SCHEDTAG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gridTableBody">
+                            <tr><td colspan="6" class="text-white opacity-75 p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL 3: EMBEDDED IFRAME PANELS -->
+        <div id="viewActivityReport" class="content-panel">
+            <iframe src="student_activity_report.html" class="embedded-iframe"></iframe>
+        </div>
+
+        <div id="viewSearchStudent" class="content-panel">
+            <iframe src="search_student.html" class="embedded-iframe"></iframe>
+        </div>
+
+        <div id="viewEditProfile" class="content-panel">
+            <iframe src="setup.html" class="embedded-iframe"></iframe>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+Auth.requireAuth('teacher');
+const teacher = Auth.getUser();
+document.getElementById('teacherNameDisplay').innerText = `${teacher.firstname || ''} ${teacher.lastname || ''}`;
+
+let rawTeacherRecords = [];
+
+function showAlert(msg) {
+    document.getElementById('alertModalBody').innerText = msg;
+    new bootstrap.Modal(document.getElementById('alertModal')).show();
+}
+
+function showLoading(show, message = "PROCESSING OPERATION...") {
+    document.getElementById('loadingText').innerText = message;
+    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+}
+
+function autoCapitalizeInputs() {
+    document.querySelectorAll('input[type="text"]').forEach(input => {
+        input.style.textTransform = 'uppercase';
+        input.addEventListener('input', function() { this.value = this.value.toUpperCase(); });
+    });
+}
+
+function toggleMobileSidebar() {
+    document.getElementById('sidebar')?.classList.toggle('show');
+    document.getElementById('sidebarBackdrop')?.classList.toggle('show');
+}
+
+function closeMobileSidebar() {
+    document.getElementById('sidebar')?.classList.remove('show');
+    document.getElementById('sidebarBackdrop')?.classList.remove('show');
+}
+
+window.addEventListener('resize', () => { if (window.innerWidth >= 992) closeMobileSidebar(); });
+
+function clearMainView() {
+    document.querySelectorAll('.content-panel').forEach(panel => panel.classList.remove('active-panel'));
+    document.querySelectorAll('.sidebar-sub-menu .nav-item-link').forEach(link => link.classList.remove('active'));
+    document.getElementById('watermarkContainer').style.display = 'flex';
+}
+
+function switchView(viewId, element) {
+    clearMainView();
+    document.getElementById(viewId)?.classList.add('active-panel');
+    element?.classList.add('active');
+    document.getElementById('watermarkContainer').style.display = 'none';
+    closeMobileSidebar();
+}
+
+function initSyDropdown() {
+    const sySelect = document.getElementById('filterSy');
+    sySelect.innerHTML = '';
+    for (let y = 2025; y <= 2049; y++) {
+        const val = `${y}-${y + 1}`;
+        sySelect.innerHTML += `<option value="${val}">${val}</option>`;
+    }
+}
+
+async function loadTeacherDashboard() {
+    showLoading(true, "LOADING TEACHER RECORDS...");
+    initSyDropdown();
+
+    const { data, error } = await _supabase
+        .from('tblrecords')
+        .select('*')
+        .eq('teacherid', teacher.teacherid);
+
+    showLoading(false);
+    if (!error && data) {
+        rawTeacherRecords = data;
+        populateFilterOptions();
+        applyFilters();
+    }
+}
+
+function populateFilterOptions() {
+    const subjectSelect = document.getElementById('filterSubject');
+    subjectSelect.innerHTML = '<option value="">ALL SUBJECTS</option>';
+    
+    const subjectsSet = new Set();
+    const prelims = [], midterms = [], finals = [], others = [];
+
+    rawTeacherRecords.forEach(r => {
+        if (r.subjects) subjectsSet.add(r.subjects.toUpperCase());
+        const comp = r.component ? r.component.toUpperCase() : '';
+        if (comp.includes('PRELIM') && !prelims.includes(comp)) prelims.push(comp);
+        else if (comp.includes('MIDTERM') && !midterms.includes(comp)) midterms.push(comp);
+        else if (comp.includes('FINAL') && !finals.includes(comp)) finals.push(comp);
+        else if (comp && !others.includes(comp)) others.push(comp);
+    });
+
+    Array.from(subjectsSet).sort().forEach(s => {
+        subjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
+    });
+
+    const groupContainer = document.getElementById('componentGroupContainer');
+    groupContainer.innerHTML = '';
+    renderComponentGroup(groupContainer, 'PRELIM', 'accPrelim', prelims);
+    renderComponentGroup(groupContainer, 'MIDTERM', 'accMidterm', midterms);
+    renderComponentGroup(groupContainer, 'FINAL', 'accFinal', finals);
+    renderComponentGroup(groupContainer, 'OTHER', 'accOther', others);
+}
+
+function renderComponentGroup(container, label, id, list) {
+    if (list.length === 0) return;
+    let itemsHtml = list.map(c => `<div class="comp-opt-item" onclick="selectComponent('${c}')">${c}</div>`).join('');
+    container.innerHTML += `
+        <button type="button" class="accordion-header-btn" onclick="toggleAccordionGroup(event, '${id}')">
+            ${label} <i class="bi bi-chevron-right"></i>
+        </button>
+        <div class="accordion-item-list" id="${id}">${itemsHtml}</div>`;
+}
+
+function toggleComponentMenu(e) { e.stopPropagation(); document.getElementById('compDropdownMenu').classList.toggle('show'); }
+
+function toggleAccordionGroup(e, targetId) {
+    e.stopPropagation();
+    const targetGroup = document.getElementById(targetId);
+    const isOpen = targetGroup.classList.contains('open');
+    document.querySelectorAll('.accordion-item-list').forEach(el => el.classList.remove('open'));
+    if (!isOpen) targetGroup.classList.add('open');
+}
+
+function selectComponent(val) {
+    document.getElementById('selectedComponentInput').value = val;
+    document.getElementById('selectedComponentText').innerText = val !== '' ? val : 'ALL COMPONENTS';
+    document.getElementById('compDropdownMenu').classList.remove('show');
+}
+
+function applyFilters() {
+    const sy = document.getElementById('filterSy').value;
+    const sem = document.getElementById('filterSem').value;
+    const sub = document.getElementById('filterSubject').value;
+    const comp = document.getElementById('selectedComponentInput').value;
+
+    const filtered = rawTeacherRecords.filter(r => {
+        const matchSy = !sy || r.schoolyear === sy;
+        const matchSem = !sem || String(r.semester) === String(sem) || (sem === '1' && r.semester === 'First Semester') || (sem === '2' && r.semester === 'Second Semester') || (sem === '3' && r.semester === 'Summer');
+        const matchSub = !sub || (r.subjects && r.subjects.toUpperCase() === sub);
+        const matchComp = !comp || (r.component && r.component.toUpperCase() === comp);
+        return matchSy && matchSem && matchSub && matchComp;
+    });
+
+    renderRecordsGrid(filtered);
+}
+
+function renderRecordsGrid(records) {
+    const tbody = document.getElementById('gridTableBody');
+    const theadRow = document.getElementById('gridHeaderRow');
+    
+    const pivoted = {};
+    const dynamicComps = new Set();
+
+    records.forEach(r => {
+        const key = `${r.studentid}_${r.subjects}`;
+        if (!pivoted[key]) {
+            pivoted[key] = {
+                studentid: r.studentid,
+                name: `${r.lastname || ''}, ${r.firstname || ''}`,
+                course: r.course || '',
+                subjects: r.subjects || '',
+                schedtag: r.schedtag || '',
+                results: {}
+            };
+        }
+        pivoted[key].results[r.component] = r.result;
+        if (r.component) dynamicComps.add(r.component);
+    });
+
+    const compList = Array.from(dynamicComps);
+    
+    let headerHtml = `
+        <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>
+        <th>STUDENT ID</th><th>NAME</th><th>COURSE</th><th>SUBJECT</th>`;
+    compList.forEach(c => { headerHtml += `<th class="text-glow-blue">${c}</th>`; });
+    headerHtml += `<th>SCHEDTAG</th>`;
+    theadRow.innerHTML = headerHtml;
+
+    const pivotKeys = Object.keys(pivoted);
+    if (pivotKeys.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${6 + compList.length}" class="text-white opacity-75 p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = '';
+    pivotKeys.forEach(k => {
+        const st = pivoted[k];
+        let rowHtml = `
+            <tr>
+                <td><input type="checkbox" value="${st.studentid}|${st.subjects}" class="form-check-input record-checkbox"></td>
+                <td class="fw-bold text-white">${st.studentid}</td>
+                <td class="text-white">${st.name}</td>
+                <td class="text-white">${st.course}</td>
+                <td><span class="badge badge-blue">${st.subjects}</span></td>`;
+        
+        compList.forEach(c => {
+            rowHtml += `<td class="fw-bold text-glow-emerald">${st.results[c] || '-'}</td>`;
+        });
+
+        rowHtml += `<td class="text-white">${st.schedtag}</td></tr>`;
+        tbody.innerHTML += rowHtml;
+    });
+}
+
+function toggleSelectAll(master) {
+    document.querySelectorAll('.record-checkbox').forEach(cb => cb.checked = master.checked);
+}
+
+async function deleteSelectedRecords() {
+    const checked = document.querySelectorAll('.record-checkbox:checked');
+    if (checked.length === 0) {
+        showAlert('PLEASE SELECT AT LEAST ONE RECORD TO DELETE.');
+        return;
+    }
+
+    showLoading(true, "DELETING RECORDS...");
+    let deletedCount = 0;
+
+    for (let cb of checked) {
+        const parts = cb.value.split('|');
+        const stuId = parts[0];
+        const sub = parts[1];
+
+        const { error } = await _supabase.from('tblrecords')
+            .delete()
+            .eq('teacherid', teacher.teacherid)
+            .eq('studentid', stuId)
+            .eq('subjects', sub);
+
+        if (!error) deletedCount++;
+    }
+
+    showLoading(false);
+    showAlert(`SUCCESSFULLY DELETED RECORD ENTRY(IES).`);
+    loadTeacherDashboard();
+}
+
+document.getElementById('uploadCsvForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById('csvFileInput');
+    if (!fileInput.files.length) return;
+
+    showLoading(true, "PROCESSING CSV FILE...");
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async function(e) {
+        const lines = e.target.result.split('\n');
+        let inserted = 0;
+        
+        for (let i = 1; i < lines.length; i++) {
+            const row = lines[i].split(',').map(item => item ? item.trim() : '');
+            if (row.length >= 11 && row[0] && row[6] && row[7]) {
+                const payload = {
+                    studentid: row[0].toUpperCase(),
+                    teacherid: teacher.teacherid,
+                    lastname: row[2].toUpperCase(),
+                    firstname: row[3].toUpperCase(),
+                    course: row[4].toUpperCase(),
+                    schedtag: row[5].toUpperCase(),
+                    subjects: row[6].toUpperCase(),
+                    component: row[7].toUpperCase(),
+                    result: row[8].toUpperCase(),
+                    schoolyear: row[9].toUpperCase(),
+                    semester: row[10].toUpperCase()
+                };
+
+                const { error } = await _supabase.from('tblrecords').upsert([payload]);
+                if (!error) inserted++;
+            }
+        }
+
+        showLoading(false);
+        showAlert(`CSV PROCESSED: SUCCESSFULLY PROCESSED RECORDS.`);
+        fileInput.value = '';
+        loadTeacherDashboard();
+    };
+
+    reader.readAsText(file);
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+    autoCapitalizeInputs();
+    document.querySelectorAll('.sidebar-accordion .accordion-collapse').forEach(el => {
+        el.addEventListener('hidden.bs.collapse', clearMainView);
+    });
+    document.querySelectorAll('.nav-item-link').forEach(link => {
+        link.addEventListener('click', closeMobileSidebar);
+    });
+    loadTeacherDashboard();
+});
+</script>
+</body>
+</html>

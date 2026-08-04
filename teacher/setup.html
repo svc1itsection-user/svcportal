@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Profile & Settings - Emerald Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/supabase-config.js"></script>
+    <style>
+        body { 
+            background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #042f2e 100%); 
+            min-height: 100vh; color: #ffffff; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; align-items: center; justify-content: center; padding: 20px 0;
+        }
+        .text-glow-emerald { color: #ffffff !important; text-shadow: 0 0 10px rgba(52, 211, 153, 0.8); }
+        .glass-card { 
+            background: rgba(4, 47, 46, 0.85); backdrop-filter: blur(16px); 
+            border: 1.5px solid rgba(16, 185, 129, 0.35); border-radius: 16px; 
+            width: 100%; max-width: 520px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        .form-control, .form-select { 
+            background: rgba(255, 255, 255, 0.08) !important; 
+            border: 1px solid rgba(16, 185, 129, 0.4) !important; 
+            color: #ffffff !important; 
+        }
+        .form-select option { background: #022c22; color: #ffffff; }
+        .btn-glass-green { 
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%); 
+            border: 1px solid rgba(52, 211, 153, 0.5); color: #ffffff; font-weight: 600; 
+        }
+        .modal-glass { 
+            background: rgba(4, 47, 46, 0.95); border: 1.5px solid rgba(16, 185, 129, 0.5); 
+            border-radius: 16px; color: #ffffff; 
+        }
+        .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 44, 34, 0.85); backdrop-filter: blur(8px); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay" class="spinner-overlay">
+    <div class="spinner-border mb-3" style="width: 3rem; height: 3rem; color: #10b981;"></div>
+    <div class="text-glow-emerald fw-bold fs-5" id="loadingText">SAVING...</div>
+</div>
+
+<div class="modal fade" id="alertModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-glass p-3 text-center">
+            <div class="modal-body fs-5 text-glow-emerald" id="alertModalBody"></div>
+            <div class="mt-3"><button type="button" class="btn btn-glass-green px-4" data-bs-dismiss="modal">OK</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card p-4 m-3">
+    <!-- EDIT PROFILE SECTION -->
+    <div class="mb-4 pb-3 border-bottom border-light border-opacity-25">
+        <h4 class="text-glow-emerald fw-bold mb-3"><i class="bi bi-person-gear me-2"></i>EDIT PROFILE</h4>
+        <form id="profileForm">
+            <div class="mb-3">
+                <label class="form-label text-white small">FIRST NAME</label>
+                <input type="text" id="firstname" class="form-control" required style="text-transform: uppercase;">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label text-white small">LAST NAME</label>
+                <input type="text" id="lastname" class="form-control" required style="text-transform: uppercase;">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label text-white small">SUBJECT HANDLED</label>
+                <input type="text" id="subjecthandled" class="form-control" placeholder="E.G. CS101" required style="text-transform: uppercase;">
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label text-white small">SCHOOL YEAR</label>
+                    <select id="schoolyear" class="form-select" required></select>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label text-white small">SEMESTER</label>
+                    <select id="semester" class="form-select" required>
+                        <option value="1">First Semester</option>
+                        <option value="2">Second Semester</option>
+                        <option value="3">Summer</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-glass-green w-100 py-2"><i class="bi bi-check-circle me-1"></i> SAVE PROFILE</button>
+        </form>
+    </div>
+
+    <!-- CHANGE PASSWORD SECTION -->
+    <div>
+        <h5 class="text-glow-emerald fw-bold mb-3"><i class="bi bi-key me-2"></i>CHANGE PASSWORD</h5>
+        <form id="passwordForm">
+            <div class="mb-3">
+                <label class="form-label text-white small">CURRENT PASSWORD</label>
+                <div class="input-group">
+                    <input type="password" id="oldPass" class="form-control" required>
+                    <button class="btn btn-outline-success text-white" type="button" onclick="togglePass('oldPass', this)"><i class="bi bi-eye"></i></button>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label text-white small">NEW PASSWORD</label>
+                <div class="input-group">
+                    <input type="password" id="newPass" class="form-control" required>
+                    <button class="btn btn-outline-success text-white" type="button" onclick="togglePass('newPass', this)"><i class="bi bi-eye"></i></button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-glass-green w-100 py-2"><i class="bi bi-shield-lock me-1"></i> UPDATE PASSWORD</button>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+Auth.requireAuth('teacher');
+const teacher = Auth.getUser();
+
+function showAlert(msg) {
+    document.getElementById('alertModalBody').innerText = msg;
+    new bootstrap.Modal(document.getElementById('alertModal')).show();
+}
+
+function showLoading(show, message = "SAVING...") {
+    document.getElementById('loadingText').innerText = message;
+    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+}
+
+function togglePass(id, btn) {
+    const input = document.getElementById(id);
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+
+function autoCapitalizeInputs() {
+    document.querySelectorAll('input[type="text"]').forEach(input => {
+        input.style.textTransform = 'uppercase';
+        input.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    });
+}
+
+function initForm() {
+    const sySelect = document.getElementById('schoolyear');
+    sySelect.innerHTML = '';
+    for (let y = 2025; y <= 2049; y++) {
+        const val = `${y}-${y + 1}`;
+        sySelect.innerHTML += `<option value="${val}">${val}</option>`;
+    }
+
+    document.getElementById('firstname').value = teacher.firstname || '';
+    document.getElementById('lastname').value = teacher.lastname || '';
+    document.getElementById('subjecthandled').value = teacher.subjecthandled || '';
+    if (teacher.schoolyear) sySelect.value = teacher.schoolyear;
+    if (teacher.semester) document.getElementById('semester').value = teacher.semester;
+}
+
+document.getElementById('profileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showLoading(true, "SAVING PROFILE...");
+
+    const updated = {
+        firstname: document.getElementById('firstname').value.trim().toUpperCase(),
+        lastname: document.getElementById('lastname').value.trim().toUpperCase(),
+        subjecthandled: document.getElementById('subjecthandled').value.trim().toUpperCase(),
+        schoolyear: document.getElementById('schoolyear').value,
+        semester: parseInt(document.getElementById('semester').value) || 1
+    };
+
+    const { data, error } = await _supabase
+        .from('tblteacheruser')
+        .update(updated)
+        .eq('teacherid', teacher.teacherid)
+        .select()
+        .single();
+
+    showLoading(false);
+
+    if (error) {
+        showAlert("FAILED TO UPDATE PROFILE. PLEASE TRY AGAIN.");
+    } else {
+        Auth.setUser(data, 'teacher');
+        showAlert("PROFILE UPDATED SUCCESSFULLY.");
+    }
+});
+
+document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showLoading(true, "UPDATING PASSWORD...");
+
+    const oldPass = document.getElementById('oldPass').value;
+    const newPass = document.getElementById('newPass').value;
+
+    const { data, error } = await _supabase
+        .from('tblteacheruser')
+        .select('password')
+        .eq('teacherid', teacher.teacherid)
+        .single();
+
+    if (error || !data || data.password !== oldPass) {
+        showLoading(false);
+        showAlert("INCORRECT CURRENT PASSWORD.");
+        return;
+    }
+
+    const updateRes = await _supabase
+        .from('tblteacheruser')
+        .update({ password: newPass })
+        .eq('teacherid', teacher.teacherid);
+
+    showLoading(false);
+
+    if (updateRes.error) {
+        showAlert("FAILED TO UPDATE PASSWORD.");
+    } else {
+        document.getElementById('oldPass').value = '';
+        document.getElementById('newPass').value = '';
+        showAlert("PASSWORD CHANGED SUCCESSFULLY!");
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    autoCapitalizeInputs();
+    initForm();
+});
+</script>
+</body>
+</html>

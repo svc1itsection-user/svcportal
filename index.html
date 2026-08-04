@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVC - Portal Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #042f2e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .text-glow-emerald { color: #ffffff !important; text-shadow: 0 0 10px rgba(52, 211, 153, 0.8); }
+        .glass-card {
+            background: rgba(4, 47, 46, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(16, 185, 129, 0.35);
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 460px;
+            padding: 2.5rem;
+        }
+        .portal-logo { width: 80px; height: 80px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.6)); }
+        .nav-pills .nav-link {
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+        .nav-pills .nav-link.active {
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+        .form-control {
+            background: rgba(255, 255, 255, 0.08) !important;
+            border: 1px solid rgba(16, 185, 129, 0.4) !important;
+            color: #ffffff !important;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+        }
+        .form-control:focus { box-shadow: 0 0 10px rgba(52, 211, 153, 0.5); }
+        .input-group .form-control {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        .input-group .btn-toggle-pass {
+            border-top-right-radius: 10px;
+            border-bottom-right-radius: 10px;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+        }
+        .btn-glass-green {
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            border: 1px solid rgba(52, 211, 153, 0.5);
+            color: #ffffff;
+            font-weight: 700;
+            border-radius: 10px;
+            padding: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+        .btn-glass-green:hover { color: #ffffff; opacity: 0.9; }
+        .spinner-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 44, 34, 0.85); backdrop-filter: blur(10px); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column;
+        }
+        .modal-glass { background: rgba(4, 47, 46, 0.95); border: 1.5px solid rgba(16, 185, 129, 0.5); border-radius: 16px; color: #ffffff; }
+    </style>
+</head>
+<body>
+
+<!-- Animated Loading Indicator -->
+<div id="loadingOverlay" class="spinner-overlay" style="display: none;">
+    <div class="spinner-border mb-3" style="width: 3rem; height: 3rem; color: #10b981;"></div>
+    <div class="text-glow-emerald fw-bold fs-5" id="loadingText">VERIFYING CREDENTIALS...</div>
+</div>
+
+<!-- Centered Screen Popup Alert Modal -->
+<div class="modal fade" id="alertModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-glass p-3 text-center">
+            <div class="modal-body fs-5 text-glow-emerald" id="alertModalBody"></div>
+            <div class="mt-3"><button type="button" class="btn btn-glass-green px-4" data-bs-dismiss="modal">OK</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card text-center">
+    <img src="logo.png" alt="SVC Logo" class="portal-logo mb-3" onerror="this.style.display='none'">
+    <h3 class="fw-bold text-glow-emerald mb-1">ST. VINCENT COLLEGE</h3>
+    <p class="small text-white opacity-75 mb-4">PORTAL LOGIN</p>
+
+    <ul class="nav nav-pills nav-justified mb-4" id="loginTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" id="student-tab" data-bs-toggle="tab" data-bs-target="#student-panel">STUDENT</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="teacher-tab" data-bs-toggle="tab" data-bs-target="#teacher-panel">TEACHER</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin-panel">ADMIN</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="loginTabContent">
+        <!-- STUDENT LOGIN PANEL -->
+        <div class="tab-pane fade show active" id="student-panel" role="tabpanel">
+            <form id="studentLoginForm">
+                <div class="mb-3 text-start">
+                    <label class="form-label small text-white opacity-75">STUDENT ID</label>
+                    <input type="text" id="studentId" class="form-control" placeholder="E.G. 2025-0001" style="text-transform: uppercase;" required>
+                </div>
+                <div class="mb-4 text-start">
+                    <label class="form-label small text-white opacity-75">PASSWORD</label>
+                    <div class="input-group">
+                        <input type="password" id="studentPass" class="form-control" placeholder="••••••••" required>
+                        <button class="btn btn-toggle-pass" type="button" onclick="togglePassword('studentPass', this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-glass-green w-100">SIGN IN AS STUDENT</button>
+            </form>
+        </div>
+
+        <!-- TEACHER LOGIN PANEL -->
+        <div class="tab-pane fade" id="teacher-panel" role="tabpanel">
+            <form id="teacherLoginForm">
+                <div class="mb-3 text-start">
+                    <label class="form-label small text-white opacity-75">TEACHER ID / USERNAME</label>
+                    <input type="text" id="teacherId" class="form-control" placeholder="E.G. T-102" style="text-transform: uppercase;" required>
+                </div>
+                <div class="mb-4 text-start">
+                    <label class="form-label small text-white opacity-75">PASSWORD</label>
+                    <div class="input-group">
+                        <input type="password" id="teacherPass" class="form-control" placeholder="••••••••" required>
+                        <button class="btn btn-toggle-pass" type="button" onclick="togglePassword('teacherPass', this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-glass-green w-100">SIGN IN AS TEACHER</button>
+            </form>
+        </div>
+
+        <!-- ADMIN LOGIN PANEL -->
+        <div class="tab-pane fade" id="admin-panel" role="tabpanel">
+            <form id="adminLoginForm">
+                <div class="mb-3 text-start">
+                    <label class="form-label small text-white opacity-75">ADMIN USERNAME</label>
+                    <input type="text" id="adminUser" class="form-control" placeholder="E.G. ADMIN" style="text-transform: uppercase;" required>
+                </div>
+                <div class="mb-4 text-start">
+                    <label class="form-label small text-white opacity-75">PASSWORD</label>
+                    <div class="input-group">
+                        <input type="password" id="adminPass" class="form-control" placeholder="••••••••" required>
+                        <button class="btn btn-toggle-pass" type="button" onclick="togglePassword('adminPass', this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-glass-green w-100">SIGN IN AS SUPER ADMIN</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function showAlert(msg) {
+    document.getElementById('alertModalBody').innerText = msg;
+    new bootstrap.Modal(document.getElementById('alertModal')).show();
+}
+
+function showLoading(show, message = "VERIFYING CREDENTIALS...") { 
+    document.getElementById('loadingText').innerText = message;
+    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none'; 
+}
+
+function autoCapitalizeInputs() {
+    document.querySelectorAll('input[type="text"]').forEach(input => {
+        input.style.textTransform = 'uppercase';
+        input.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    });
+}
+
+function togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+
+document.getElementById('studentLoginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showLoading(true, "LOGGING IN AS STUDENT...");
+    const id = document.getElementById('studentId').value.trim();
+    const pass = document.getElementById('studentPass').value;
+
+    const { data, error } = await _supabase
+        .from('tblstudentuser')
+        .select('*')
+        .eq('studentid', id)
+        .eq('password', pass)
+        .maybeSingle();
+
+    showLoading(false);
+
+    if (error || !data) {
+        showAlert('INVALID CREDENTIALS. PLEASE CHECK YOUR STUDENT ID AND PASSWORD.');
+        return;
+    }
+
+    Auth.setUser(data, 'student');
+    window.location.href = 'student/dashboard.html';
+});
+
+document.getElementById('teacherLoginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showLoading(true, "LOGGING IN AS TEACHER...");
+    const id = document.getElementById('teacherId').value.trim();
+    const pass = document.getElementById('teacherPass').value;
+
+    const { data, error } = await _supabase
+        .from('tblteacheruser')
+        .select('*')
+        .eq('teacherid', id)
+        .eq('password', pass)
+        .maybeSingle();
+
+    showLoading(false);
+
+    if (error || !data) {
+        showAlert('INVALID CREDENTIALS. PLEASE CHECK YOUR TEACHER ID AND PASSWORD.');
+        return;
+    }
+
+    Auth.setUser(data, 'teacher');
+    window.location.href = 'teacher/dashboard.html';
+});
+
+document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showLoading(true, "LOGGING IN AS SUPER ADMIN...");
+    const user = document.getElementById('adminUser').value.trim().toUpperCase();
+    const pass = document.getElementById('adminPass').value;
+
+    // Default master admin check (or query your admin table in Supabase)
+    if (user === 'ADMIN' && pass === ':-)') {
+        showLoading(false);
+        Auth.setUser({ username: user, role: 'admin' }, 'admin');
+        window.location.href = 'admin/dashboard.html';
+    } else {
+        showLoading(false);
+        showAlert('INVALID ADMIN CREDENTIALS.');
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    autoCapitalizeInputs();
+});
+</script>
+</body>
+</html>

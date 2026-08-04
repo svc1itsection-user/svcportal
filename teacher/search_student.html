@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Student Password - Emerald Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/supabase-config.js"></script>
+    <style>
+        body { background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #042f2e 100%); min-height: 100vh; color: #f8fafc; font-family: 'Segoe UI', sans-serif; }
+        .text-glow-emerald { color: #34d399 !important; text-shadow: 0 0 10px rgba(52, 211, 153, 0.5); }
+        .glass-nav { background: rgba(2, 44, 34, 0.85) !important; backdrop-filter: blur(12px); border-bottom: 1px solid rgba(16, 185, 129, 0.3); }
+        .glass-card { background: rgba(4, 47, 46, 0.75); backdrop-filter: blur(16px); border: 1.5px solid rgba(16, 185, 129, 0.35); border-radius: 16px; }
+        .form-control { background: rgba(255, 255, 255, 0.08) !important; border: 1px solid rgba(16, 185, 129, 0.4) !important; color: #f8fafc !important; text-transform: uppercase; }
+        .btn-glass-green { background: linear-gradient(135deg, #10b981 0%, #047857 100%); border: 1px solid rgba(52, 211, 153, 0.5); color: white; font-weight: 600; }
+        .btn-glass-blue { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border: 1px solid rgba(56, 189, 248, 0.5); color: white; font-weight: 600; }
+        .table-glass { color: #f8fafc; }
+        .table-glass th { background: rgba(16, 185, 129, 0.25) !important; color: #6ee7b7 !important; border-bottom: 2px solid rgba(16, 185, 129, 0.4); }
+        .table-glass td { background: rgba(2, 44, 34, 0.4); border-color: rgba(16, 185, 129, 0.2); color: #f1f5f9; }
+        .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 44, 34, 0.85); backdrop-filter: blur(8px); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay" class="spinner-overlay">
+    <div class="spinner-border mb-3" style="width: 3rem; height: 3rem; color: #10b981;"></div>
+    <div class="text-glow-emerald fw-bold fs-5">SEARCHING STUDENT DATABASE...</div>
+</div>
+
+<nav class="navbar navbar-expand-lg navbar-dark glass-nav mb-4">
+    <div class="container">
+        <a class="navbar-brand text-glow-emerald fw-bold" href="#">TEACHER PORTAL</a>
+    </div>
+</nav>
+
+<div class="container" style="max-width: 900px;">
+    <div class="glass-card p-4 mb-4">
+        <h5 class="text-glow-emerald fw-bold mb-3"><i class="bi bi-search me-2"></i>STUDENT SEARCH & PASSWORD LOOKUP</h5>
+        <form id="searchForm" class="row g-2">
+            <div class="col-md-9">
+                <input type="text" id="searchInput" class="form-control" placeholder="ENTER STUDENT ID OR NAME..." required style="text-transform: uppercase;">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-glass-green w-100">SEARCH</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="glass-card p-4 d-none" id="resultsCard">
+        <h6 class="text-glow-emerald mb-3">SEARCH RESULTS FOR: "<strong id="searchQueryLabel"></strong>"</h6>
+        <div class="table-responsive">
+            <table class="table table-glass align-middle text-center">
+                <thead>
+                    <tr>
+                        <th>STUDENT ID</th>
+                        <th>FULL NAME</th>
+                        <th>PASSWORD</th>
+                    </tr>
+                </thead>
+                <tbody id="searchResultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+Auth.requireAuth('teacher');
+
+function showLoading(show) {
+    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+}
+
+function autoCapitalizeInputs() {
+    document.querySelectorAll('input[type="text"]').forEach(input => {
+        input.style.textTransform = 'uppercase';
+        input.addEventListener('input', function() { this.value = this.value.toUpperCase(); });
+    });
+}
+
+function togglePass(btn) {
+    const input = btn.previousElementSibling;
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+        btn.innerHTML = '<i class="bi bi-eye-slash"></i> HIDE';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+        btn.innerHTML = '<i class="bi bi-eye"></i> SHOW';
+    }
+}
+
+document.getElementById('searchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const query = document.getElementById('searchInput').value.trim().toUpperCase();
+    if (!query) return;
+
+    showLoading(true);
+    document.getElementById('searchQueryLabel').innerText = query;
+
+    const { data, error } = await _supabase
+        .from('tblstudentuser')
+        .select('studentid, firstname, lastname, password')
+        .or(`studentid.ilike.%${query}%,firstname.ilike.%${query}%,lastname.ilike.%${query}%`)
+        .order('lastname', { ascending: true });
+
+    showLoading(false);
+    document.getElementById('resultsCard').classList.remove('d-none');
+
+    const tbody = document.getElementById('searchResultsBody');
+    tbody.innerHTML = '';
+
+    if (error || !data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="text-light opacity-75 p-4">NO MATCHING STUDENT RECORDS FOUND.</td></tr>`;
+        return;
+    }
+
+    data.forEach(row => {
+        tbody.innerHTML += `
+            <tr>
+                <td class="fw-bold text-light">${row.studentid}</td>
+                <td class="text-light">${row.lastname || ''}, ${row.firstname || ''}</td>
+                <td>
+                    <div class="input-group mx-auto" style="max-width: 250px;">
+                        <input type="password" value="${row.password || ''}" class="form-control form-control-sm pass-input" readonly style="text-transform: none;">
+                        <button class="btn btn-glass-blue btn-sm toggle-pass" type="button" onclick="togglePass(this)">
+                            <i class="bi bi-eye"></i> SHOW
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    });
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    autoCapitalizeInputs();
+});
+</script>
+</body>
+</html>
