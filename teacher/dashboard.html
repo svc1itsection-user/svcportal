@@ -76,12 +76,21 @@
         .btn-glass-red { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); border: 1px solid rgba(248, 113, 113, 0.5); color: #ffffff; font-weight: 600; }
         .badge-blue { background: rgba(2, 132, 199, 0.35); border: 1px solid #38bdf8; color: #ffffff !important; text-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
 
+        /* Grid & Group Header Styling */
         .table-glass { 
             color: #ffffff !important; border-collapse: separate; border-spacing: 0; border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; overflow: hidden;
         }
         .table-glass th { background: rgba(16, 185, 129, 0.3) !important; color: #ffffff !important; border: 1px solid rgba(16, 185, 129, 0.35) !important; text-shadow: 0 0 6px rgba(52, 211, 153, 0.8); }
         .table-glass td { background: rgba(2, 44, 34, 0.6) !important; border: 1px solid rgba(16, 185, 129, 0.35) !important; color: #ffffff !important; }
         .table-glass tbody tr:hover td { background-color: rgba(16, 185, 129, 0.25) !important; }
+
+        /* School Branch Group Header Rows */
+        .branch-group-header td {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.35) 0%, rgba(4, 47, 46, 0.85) 100%) !important;
+            border-top: 2px solid #10b981 !important;
+            border-bottom: 2px solid #10b981 !important;
+            letter-spacing: 1px;
+        }
 
         .comp-dropdown-btn { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(16, 185, 129, 0.4); color: #ffffff; padding: 0.25rem 0.5rem; border-radius: 4px; text-align: left; width: 100%; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 0.875rem; }
         .comp-dropdown-menu { background: #022c22; border: 1.5px solid rgba(16, 185, 129, 0.6); border-radius: 6px; padding: 0.5rem; max-height: 280px; overflow-y: auto; width: 100%; display: none; position: absolute; z-index: 1050; box-shadow: 0 10px 25px rgba(0,0,0,0.8); top: 100%; left: 0; }
@@ -250,6 +259,7 @@
                         </div>
                     </div>
                     <div class="col-12 mt-3">
+                        <!-- APPLY FILTERS BUTTON WITH SPINNER TRIGGER -->
                         <button onclick="applyFilters()" class="btn btn-glass-green w-100 py-1"><i class="bi bi-filter"></i> APPLY FILTERS</button>
                     </div>
                 </div>
@@ -349,16 +359,14 @@ function switchView(viewId, element) {
     closeMobileSidebar();
 }
 
-// AUTOMATICALLY DYNAMIC SCHOOL YEAR INITIALIZATION
+// DYNAMIC CURRENT SCHOOL YEAR INITIALIZATION
 function initSyDropdown() {
     const sySelect = document.getElementById('filterSy');
     sySelect.innerHTML = '';
     
-    // Get current calendar year dynamically
     const currentYear = new Date().getFullYear();
     const currentSy = `${currentYear}-${currentYear + 1}`;
 
-    // Populate dropdown options from 2025 up to 2049
     for (let y = 2025; y <= 2049; y++) {
         const val = `${y}-${y + 1}`;
         const isSelected = (val === currentSy) ? 'selected' : '';
@@ -390,7 +398,6 @@ function populateFilterOptions() {
     const subjectsSet = new Set();
     const prelims = [], midterms = [], finals = [], others = [];
 
-    // 1. Parse subjects assigned in the teacher user profile (e.g., "CS101, CS102, IT203")
     if (teacher.subjecthandled) {
         teacher.subjecthandled.split(',').forEach(sub => {
             const cleaned = sub.trim().toUpperCase();
@@ -398,7 +405,6 @@ function populateFilterOptions() {
         });
     }
 
-    // 2. Parse subjects from uploaded student records in tblrecords
     rawTeacherRecords.forEach(r => {
         if (r.subjects) subjectsSet.add(r.subjects.toUpperCase());
         const comp = r.component ? r.component.toUpperCase() : '';
@@ -408,7 +414,6 @@ function populateFilterOptions() {
         else if (comp && !others.includes(comp)) others.push(comp);
     });
 
-    // 3. Populate dropdown with all unique sorted subjects
     Array.from(subjectsSet).sort().forEach(s => {
         subjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
     });
@@ -447,7 +452,13 @@ function selectComponent(val) {
     document.getElementById('compDropdownMenu').classList.remove('show');
 }
 
-function applyFilters() {
+// ASYNC FILTER APPLICATION WITH SPINNER PROGRESS OVERLAY
+async function applyFilters() {
+    showLoading(true, "FILTERING RECORDS...");
+    
+    // Brief non-blocking delay allowing the DOM to render the spinner overlay
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     const sy = document.getElementById('filterSy').value;
     const sem = document.getElementById('filterSem').value;
     const sub = document.getElementById('filterSubject').value;
@@ -462,8 +473,10 @@ function applyFilters() {
     });
 
     renderRecordsGrid(filtered);
+    showLoading(false);
 }
 
+// RENDER GRID: SORTED BY SCHEDTAG & GROUPED BY SCHOOL BRANCH (IVISAN vs LEGANES)
 function renderRecordsGrid(records) {
     const tbody = document.getElementById('gridTableBody');
     const theadRow = document.getElementById('gridHeaderRow');
@@ -473,6 +486,10 @@ function renderRecordsGrid(records) {
 
     records.forEach(r => {
         const key = `${r.studentid}_${r.subjects}`;
+        
+        // Check if studentid contains 'I' or 'i' -> IVISAN, else LEGANES
+        const branch = (r.studentid && r.studentid.toUpperCase().includes('I')) ? 'IVISAN' : 'LEGANES';
+
         if (!pivoted[key]) {
             pivoted[key] = {
                 studentid: r.studentid,
@@ -480,6 +497,7 @@ function renderRecordsGrid(records) {
                 course: r.course || '',
                 subjects: r.subjects || '',
                 schedtag: r.schedtag || '',
+                branch: branch,
                 results: {}
             };
         }
@@ -496,29 +514,51 @@ function renderRecordsGrid(records) {
     headerHtml += `<th>SCHEDTAG</th>`;
     theadRow.innerHTML = headerHtml;
 
-    const pivotKeys = Object.keys(pivoted);
-    if (pivotKeys.length === 0) {
+    // Convert object values into array and sort strictly by SCHEDTAG
+    const studentList = Object.values(pivoted);
+    studentList.sort((a, b) => (a.schedtag || '').localeCompare(b.schedtag || ''));
+
+    if (studentList.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${6 + compList.length}" class="text-white opacity-75 p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>`;
         return;
     }
 
     tbody.innerHTML = '';
-    pivotKeys.forEach(k => {
-        const st = pivoted[k];
-        let rowHtml = `
-            <tr>
-                <td><input type="checkbox" value="${st.studentid}|${st.subjects}" class="form-check-input record-checkbox"></td>
-                <td class="fw-bold text-white">${st.studentid}</td>
-                <td class="text-white">${st.name}</td>
-                <td class="text-white">${st.course}</td>
-                <td><span class="badge badge-blue">${st.subjects}</span></td>`;
-        
-        compList.forEach(c => {
-            rowHtml += `<td class="fw-bold text-glow-emerald">${st.results[c] || '-'}</td>`;
-        });
 
-        rowHtml += `<td class="text-white">${st.schedtag}</td></tr>`;
-        tbody.innerHTML += rowHtml;
+    // Grouping by School Branch Order (IVISAN Branch first, then LEGANES Branch)
+    const branches = ['IVISAN', 'LEGANES'];
+
+    branches.forEach(branchName => {
+        const branchStudents = studentList.filter(s => s.branch === branchName);
+        
+        if (branchStudents.length > 0) {
+            // Render Group Branch Header Row
+            let branchHeaderRow = `
+                <tr class="branch-group-header">
+                    <td colspan="${6 + compList.length}" class="text-start fw-bold text-glow-emerald ps-3 py-2">
+                        <i class="bi bi-geo-alt-fill me-2 text-warning"></i>SCHOOL BRANCH: ${branchName} (${branchStudents.length} STUDENT/S)
+                    </td>
+                </tr>`;
+            tbody.innerHTML += branchHeaderRow;
+
+            // Render Rows inside this Branch Group
+            branchStudents.forEach(st => {
+                let rowHtml = `
+                    <tr>
+                        <td><input type="checkbox" value="${st.studentid}|${st.subjects}" class="form-check-input record-checkbox"></td>
+                        <td class="fw-bold text-white">${st.studentid}</td>
+                        <td class="text-white">${st.name}</td>
+                        <td class="text-white">${st.course}</td>
+                        <td><span class="badge badge-blue">${st.subjects}</span></td>`;
+                
+                compList.forEach(c => {
+                    rowHtml += `<td class="fw-bold text-glow-emerald">${st.results[c] || '-'}</td>`;
+                });
+
+                rowHtml += `<td class="text-white">${st.schedtag}</td></tr>`;
+                tbody.innerHTML += rowHtml;
+            });
+        }
     });
 }
 
@@ -555,7 +595,7 @@ async function deleteSelectedRecords() {
     loadTeacherDashboard();
 }
 
-// ACCURATE CSV UPLOAD WITH LIVE COUNTING PROGRESS INDICATOR
+// CSV UPLOAD WITH LIVE COUNTING PROGRESS INDICATOR AND UTF-8 ENCODING FIX
 document.getElementById('uploadCsvForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fileInput = document.getElementById('csvFileInput');
@@ -568,7 +608,6 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
     reader.onload = async function(e) {
         const lines = e.target.result.split('\n');
         
-        // 1. Filter out empty lines and header row to get total valid data rows accurately
         const validRows = [];
         for (let i = 1; i < lines.length; i++) {
             const row = lines[i].split(',').map(item => item ? item.trim() : '');
@@ -586,12 +625,10 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
 
         let inserted = 0;
 
-        // 2. Loop through valid rows and display live progress counter (e.g. 25 OF 2500)
         for (let idx = 0; idx < totalRecords; idx++) {
             const row = validRows[idx];
             const currentNum = idx + 1;
 
-            // Live UI progress text update
             showLoading(true, `PROCESSING CSV RECORDS... (${currentNum} OF ${totalRecords})`);
 
             const payload = {
@@ -611,7 +648,6 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
             const { error } = await _supabase.from('tblrecords').upsert([payload]);
             if (!error) inserted++;
 
-            // Brief non-blocking delay allowing the DOM to render the counter text smoothly
             await new Promise(resolve => setTimeout(resolve, 0));
         }
 
@@ -621,7 +657,7 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
         loadTeacherDashboard();
     };
 
-    reader.readAsText(file, 'UTF-8'); // ✅ Forces proper UTF-8 decoding
+    reader.readAsText(file, 'UTF-8');
 });
 
 document.addEventListener("DOMContentLoaded", function() {
