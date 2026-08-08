@@ -238,6 +238,7 @@ document.getElementById('teacherLoginForm').addEventListener('submit', async (e)
     const id = document.getElementById('teacherId').value.trim();
     const pass = document.getElementById('teacherPass').value;
 
+    // UPDATED TABLE NAME TO EXACT MIXED CASE: 'tblTeacherUser'
     const { data, error } = await _supabase
         .from('tblTeacherUser')
         .select('*')
@@ -262,7 +263,7 @@ document.getElementById('adminLoginForm').addEventListener('submit', async (e) =
     const user = document.getElementById('adminUser').value.trim().toUpperCase();
     const pass = document.getElementById('adminPass').value;
 
-    // Default master admin check (or query your admin table in Supabase)
+    // Default master admin check
     if (user === 'ADMIN' && pass === ':-)') {
         showLoading(false);
         Auth.setUser({ username: user, role: 'admin' }, 'admin');
