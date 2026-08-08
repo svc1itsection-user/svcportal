@@ -621,7 +621,7 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
         loadTeacherDashboard();
     };
 
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8'); // ✅ Forces proper UTF-8 decoding
 });
 
 document.addEventListener("DOMContentLoaded", function() {
