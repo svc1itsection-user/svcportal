@@ -349,12 +349,20 @@ function switchView(viewId, element) {
     closeMobileSidebar();
 }
 
+// AUTOMATICALLY DYNAMIC SCHOOL YEAR INITIALIZATION
 function initSyDropdown() {
     const sySelect = document.getElementById('filterSy');
     sySelect.innerHTML = '';
+    
+    // Get current calendar year dynamically
+    const currentYear = new Date().getFullYear();
+    const currentSy = `${currentYear}-${currentYear + 1}`;
+
+    // Populate dropdown options from 2025 up to 2049
     for (let y = 2025; y <= 2049; y++) {
         const val = `${y}-${y + 1}`;
-        sySelect.innerHTML += `<option value="${val}">${val}</option>`;
+        const isSelected = (val === currentSy) ? 'selected' : '';
+        sySelect.innerHTML += `<option value="${val}" ${isSelected}>${val}</option>`;
     }
 }
 
