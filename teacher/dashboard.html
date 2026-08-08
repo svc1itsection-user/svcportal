@@ -555,43 +555,68 @@ async function deleteSelectedRecords() {
     loadTeacherDashboard();
 }
 
+// ACCURATE CSV UPLOAD WITH LIVE COUNTING PROGRESS INDICATOR
 document.getElementById('uploadCsvForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fileInput = document.getElementById('csvFileInput');
     if (!fileInput.files.length) return;
 
-    showLoading(true, "PROCESSING CSV FILE...");
+    showLoading(true, "READING CSV FILE...");
     const file = fileInput.files[0];
     const reader = new FileReader();
 
     reader.onload = async function(e) {
         const lines = e.target.result.split('\n');
-        let inserted = 0;
         
+        // 1. Filter out empty lines and header row to get total valid data rows accurately
+        const validRows = [];
         for (let i = 1; i < lines.length; i++) {
             const row = lines[i].split(',').map(item => item ? item.trim() : '');
             if (row.length >= 11 && row[0] && row[6] && row[7]) {
-                const payload = {
-                    studentid: row[0].toUpperCase(),
-                    teacherid: teacher.teacherid,
-                    lastname: row[2].toUpperCase(),
-                    firstname: row[3].toUpperCase(),
-                    course: row[4].toUpperCase(),
-                    schedtag: row[5].toUpperCase(),
-                    subjects: row[6].toUpperCase(),
-                    component: row[7].toUpperCase(),
-                    result: row[8].toUpperCase(),
-                    schoolyear: row[9].toUpperCase(),
-                    semester: row[10].toUpperCase()
-                };
-
-                const { error } = await _supabase.from('tblrecords').upsert([payload]);
-                if (!error) inserted++;
+                validRows.push(row);
             }
         }
 
+        const totalRecords = validRows.length;
+        if (totalRecords === 0) {
+            showLoading(false);
+            showAlert("NO VALID CSV RECORDS FOUND.");
+            return;
+        }
+
+        let inserted = 0;
+
+        // 2. Loop through valid rows and display live progress counter (e.g. 25 OF 2500)
+        for (let idx = 0; idx < totalRecords; idx++) {
+            const row = validRows[idx];
+            const currentNum = idx + 1;
+
+            // Live UI progress text update
+            showLoading(true, `PROCESSING CSV RECORDS... (${currentNum} OF ${totalRecords})`);
+
+            const payload = {
+                studentid: row[0].toUpperCase(),
+                teacherid: teacher.teacherid,
+                lastname: row[2].toUpperCase(),
+                firstname: row[3].toUpperCase(),
+                course: row[4].toUpperCase(),
+                schedtag: row[5].toUpperCase(),
+                subjects: row[6].toUpperCase(),
+                component: row[7].toUpperCase(),
+                result: row[8].toUpperCase(),
+                schoolyear: row[9].toUpperCase(),
+                semester: row[10].toUpperCase()
+            };
+
+            const { error } = await _supabase.from('tblrecords').upsert([payload]);
+            if (!error) inserted++;
+
+            // Brief non-blocking delay allowing the DOM to render the counter text smoothly
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
         showLoading(false);
-        showAlert(`CSV PROCESSED: SUCCESSFULLY PROCESSED RECORDS.`);
+        showAlert(`CSV PROCESSED: PROCESSED ${inserted} OF ${totalRecords} RECORDS SUCCESSFULLY.`);
         fileInput.value = '';
         loadTeacherDashboard();
     };
