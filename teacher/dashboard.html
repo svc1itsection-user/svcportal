@@ -1,264 +1,3 @@
-<?php
-require_once '../config.php';
-
-if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'teacher') {
-    header("Location: ../index.php");
-    exit;
-}
-
-$teacherid = $_SESSION['user_id'];
-$message = '';
-$error = '';
-
-// Helper function: Convert semester string/numeric to DB lookup value
-function parseSemesterVal($semInput) {
-    if ($semInput === 'First Semester' || $semInput === '1' || $semInput === 1) return '1';
-    if ($semInput === 'Second Semester' || $semInput === '2' || $semInput === 2) return '2';
-    if ($semInput === 'Summer' || $semInput === '3' || $semInput === 3) return '3';
-    return (string)$semInput;
-}
-
-$t_stmt = $conn->prepare("SELECT firstname, lastname, subjecthandled, schoolyear, semester FROM tblTeacherUser WHERE teacherid = ?");
-$t_stmt->bind_param("s", $teacherid);
-$t_stmt->execute();
-$teacher = $t_stmt->get_result()->fetch_assoc();
-$t_stmt->close();
-
-if (empty($teacher['firstname']) || empty($teacher['lastname'])) {
-    header("Location: setup.php");
-    exit;
-}
-
-// Filter Selections
-$raw_sem = $_GET['sem'] ?? $teacher['semester'];
-$selected_sem_code = parseSemesterVal($raw_sem);
-$selected_sy = $_GET['sy'] ?? $teacher['schoolyear'];
-$selected_subject = strtoupper($_GET['subject'] ?? '');
-$selected_component = strtoupper($_GET['component'] ?? '');
-
-// --- DELETE SELECTED RECORDS HANDLER ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_records') {
-    $records_to_delete = $_POST['delete_keys'] ?? []; // Array of 'studentid|subject' strings
-
-    if (!empty($records_to_delete)) {
-        $deleted_count = 0;
-        $del_stmt = $conn->prepare("DELETE FROM tblRecords WHERE teacherid = ? AND studentid = ? AND subjects = ? AND schoolyear = ? AND (semester = ? OR semester = ?)");
-
-        $sem_full_label = '';
-        if ($selected_sem_code === '1') $sem_full_label = 'First Semester';
-        else if ($selected_sem_code === '2') $sem_full_label = 'Second Semester';
-        else if ($selected_sem_code === '3') $sem_full_label = 'Summer';
-
-        foreach ($records_to_delete as $key) {
-            $parts = explode('|', $key);
-            if (count($parts) === 2) {
-                $del_std_id = $parts[0];
-                $del_subject = $parts[1];
-
-                $del_stmt->bind_param("ssssss", $teacherid, $del_std_id, $del_subject, $selected_sy, $selected_sem_code, $sem_full_label);
-                if ($del_stmt->execute()) {
-                    $deleted_count += $del_stmt->affected_rows;
-                }
-            }
-        }
-        $del_stmt->close();
-        $message = "SUCCESSFULLY DELETED $deleted_count RECORD ENTRY ROW(S).";
-    } else {
-        $error = "PLEASE SELECT AT LEAST ONE RECORD TO DELETE.";
-    }
-}
-
-// CSV Upload Handler
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
-    $file = $_FILES['csv_file']['tmp_name'];
-
-    if (!empty($file) && is_uploaded_file($file)) {
-        $handle = fopen($file, "r");
-        fgetcsv($handle, 1000, ","); // Skip header
-
-        $inserted = 0; $updated = 0;
-        $upsert_sql = "INSERT INTO tblRecords 
-            (studentid, teacherid, lastname, firstname, course, schedtag, subjects, component, result, schoolyear, semester) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE 
-                teacherid = VALUES(teacherid),
-                lastname = VALUES(lastname),
-                firstname = VALUES(firstname),
-                course = VALUES(course),
-                schedtag = VALUES(schedtag),
-                result = VALUES(result)";
-
-        $stmt = $conn->prepare($upsert_sql);
-
-        while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-            if (count($data) >= 11) {
-                $c_studentid  = strtoupper(trim($data[0]));
-                $c_teacherid  = $teacherid;
-                $c_lastname   = strtoupper(trim($data[2]));
-                $c_firstname  = strtoupper(trim($data[3]));
-                $c_course     = strtoupper(trim($data[4]));
-                $c_schedtag   = strtoupper(trim($data[5]));
-                $c_subjects   = strtoupper(trim($data[6]));
-                $c_component  = strtoupper(trim($data[7]));
-                $c_result     = strtoupper(trim($data[8]));
-                $c_schoolyear = strtoupper(trim($data[9]));
-                $c_semester   = parseSemesterVal(trim($data[10]));
-
-                if (!empty($c_studentid) && !empty($c_subjects) && !empty($c_component)) {
-                    $stmt->bind_param("sssssssssss", 
-                        $c_studentid, $c_teacherid, $c_lastname, $c_firstname, 
-                        $c_course, $c_schedtag, $c_subjects, $c_component, 
-                        $c_result, $c_schoolyear, $c_semester
-                    );
-                    if ($stmt->execute()) {
-                        if ($stmt->affected_rows === 1) $inserted++;
-                        elseif ($stmt->affected_rows === 2) $updated++;
-                    }
-                }
-            }
-        }
-        fclose($handle);
-        $stmt->close();
-        $message = "CSV PROCESSED: $inserted NEW INSERTED, $updated UPDATED.";
-    } else {
-        $error = "PLEASE CHOOSE A VALID CSV FILE.";
-    }
-}
-
-// --- OPTION 1: UNIFIED MULTI-SUBJECT FETCHING ---
-// 1. Parse comma-separated subjects from teacher profile
-$handled_raw = $teacher['subjecthandled'] ?? '';
-$profile_subjects = array_map('strtoupper', array_map('trim', explode(',', $handled_raw)));
-
-// 2. Query distinct subjects currently recorded in tblRecords
-$db_subjects = [];
-$subjects_query = $conn->query("SELECT DISTINCT subjects FROM tblRecords WHERE teacherid = '$teacherid'");
-if ($subjects_query) {
-    while ($s = $subjects_query->fetch_assoc()) {
-        if (!empty($s['subjects'])) {
-            $db_subjects[] = strtoupper(trim($s['subjects']));
-        }
-    }
-}
-
-// 3. Merge profile subjects & uploaded DB subjects, removing empty/duplicate items
-$all_available_subjects = array_filter(array_unique(array_merge($profile_subjects, $db_subjects)));
-sort($all_available_subjects);
-
-// Fetch Filter Dropdown Components
-$components_query = $conn->query("SELECT DISTINCT component FROM tblRecords WHERE teacherid = '$teacherid'");
-
-// Categorize Components into Sub-groups for Dropdown
-$prelim_comps = [];
-$midterm_comps = [];
-$final_comps = [];
-$other_comps = [];
-
-if ($components_query) {
-    while ($c = $components_query->fetch_assoc()) {
-        $comp_name = $c['component'];
-        if (stripos($comp_name, 'PRELIM') !== false) {
-            $prelim_comps[] = $comp_name;
-        } elseif (stripos($comp_name, 'MIDTERM') !== false) {
-            $midterm_comps[] = $comp_name;
-        } elseif (stripos($comp_name, 'FINAL') !== false) {
-            $final_comps[] = $comp_name;
-        } else {
-            $other_comps[] = $comp_name;
-        }
-    }
-}
-
-// Dynamic Query Construction
-$query_where = " WHERE teacherid = ? AND schoolyear = ? AND (semester = ? OR semester = ?)";
-
-$sem_full_label = '';
-if ($selected_sem_code === '1') $sem_full_label = 'First Semester';
-else if ($selected_sem_code === '2') $sem_full_label = 'Second Semester';
-else if ($selected_sem_code === '3') $sem_full_label = 'Summer';
-
-$params = [$teacherid, $selected_sy, $selected_sem_code, $sem_full_label];
-$types = "ssss";
-
-if (!empty($selected_subject)) {
-    $query_where .= " AND subjects = ?";
-    $params[] = $selected_subject; $types .= "s";
-}
-if (!empty($selected_component)) {
-    $query_where .= " AND component = ?";
-    $params[] = $selected_component; $types .= "s";
-}
-
-$rec_stmt = $conn->prepare("SELECT * FROM tblRecords $query_where ORDER BY subjects, lastname, firstname, component");
-$rec_stmt->bind_param($types, ...$params);
-$rec_stmt->execute();
-$raw_records = $rec_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$rec_stmt->close();
-
-// Pivot Rows Horizontally
-$pivoted_students = [];
-$dynamic_components = [];
-
-foreach ($raw_records as $r) {
-    $key = $r['studentid'] . '_' . $r['subjects'];
-    if (!isset($pivoted_students[$key])) {
-        $pivoted_students[$key] = [
-            'studentid' => $r['studentid'],
-            'name' => $r['lastname'] . ', ' . $r['firstname'],
-            'course' => $r['course'],
-            'subjects' => $r['subjects'],
-            'schedtag' => $r['schedtag'],
-            'results' => []
-        ];
-    }
-    $pivoted_students[$key]['results'][$r['component']] = $r['result'];
-    if (!in_array($r['component'], $dynamic_components)) {
-        $dynamic_components[] = $r['component'];
-    }
-}
-
-// --- STRICT ACADEMIC SEQUENCE SORTING ---
-usort($dynamic_components, function($a, $b) {
-    $getPeriodRank = function($item) {
-        if (stripos($item, 'PRELIM') !== false) return 1;
-        if (stripos($item, 'MIDTERM') !== false) return 2;
-        if (stripos($item, 'FINAL') !== false) return 3;
-        return 4;
-    };
-
-    $getTypeRank = function($item) {
-        if (stripos($item, 'QUIZ') !== false) {
-            if (stripos($item, 'EQUIVALENT') !== false) return 3;
-            if (stripos($item, 'GRADE') !== false) return 2;
-            return 1;
-        }
-        if (stripos($item, 'EXAM') !== false) {
-            if (stripos($item, 'EQUIVALENT') !== false) return 5;
-            return 4;
-        }
-        if (preg_match('/(PRELIM|MIDTERM|FINAL)\s*GRADE/i', $item)) {
-            return 6;
-        }
-        return 7;
-    };
-
-    $periodA = $getPeriodRank($a);
-    $periodB = $getPeriodRank($b);
-
-    if ($periodA !== $periodB) {
-        return $periodA <=> $periodB;
-    }
-
-    $typeA = $getTypeRank($a);
-    $typeB = $getTypeRank($b);
-
-    if ($typeA !== $typeB) {
-        return $typeA <=> $typeB;
-    }
-
-    return strcmp($a, $b);
-});
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -267,213 +6,65 @@ usort($dynamic_components, function($a, $b) {
     <title>SVC - Teacher Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/supabase-config.js"></script>
     <style>
-        :root {
-            --sidebar-width: 280px;
-        }
-
+        :root { --sidebar-width: 280px; }
         body { 
             background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #042f2e 100%); 
-            min-height: 100vh; 
-            color: #ffffff; 
-            overflow-x: hidden;
+            min-height: 100vh; color: #ffffff; overflow-x: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-
         .text-glow-emerald { color: #ffffff !important; text-shadow: 0 0 10px rgba(52, 211, 153, 0.8); }
         .text-glow-blue { color: #7dd3fc !important; text-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
 
-        /* Layout Structure */
-        .app-wrapper {
-            display: flex;
-            min-height: 100vh;
-        }
+        .app-wrapper { display: flex; min-height: 100vh; }
 
-        /* Sidebar Styling */
         .sidebar {
-            width: var(--sidebar-width);
-            background: rgba(2, 44, 34, 0.98);
-            backdrop-filter: blur(16px);
-            border-right: 1px solid rgba(16, 185, 129, 0.3);
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            z-index: 1050;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: var(--sidebar-width); background: rgba(2, 44, 34, 0.98); backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(16, 185, 129, 0.3); display: flex; flex-direction: column;
+            position: fixed; top: 0; bottom: 0; left: 0; z-index: 1050; transition: transform 0.3s ease;
         }
-
-        .sidebar-brand {
-            padding: 1.25rem 1.5rem;
-            border-bottom: 1px solid rgba(16, 185, 129, 0.2);
-        }
-
-        .sidebar-brand-logo {
-            width: 32px;
-            height: 32px;
-            object-fit: contain;
-            filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.5));
-        }
-
-        .sidebar-brand-title {
-            font-size: 1.5rem;
-            letter-spacing: 1px;
-        }
-
-        .sidebar-brand-subtitle {
-            font-size: 0.85rem;
-            color: #34d399;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .sidebar-user {
-            padding: 1.25rem 1.5rem;
-            background: rgba(16, 185, 129, 0.08);
-            border-bottom: 1px solid rgba(16, 185, 129, 0.2);
-        }
-
-        /* Mobile Sidebar Backdrop Overlay */
+        .sidebar-brand { padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(16, 185, 129, 0.2); }
+        .sidebar-brand-logo { width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.5)); }
+        .sidebar-brand-title { font-size: 1.5rem; letter-spacing: 1px; }
+        .sidebar-brand-subtitle { font-size: 0.85rem; color: #34d399; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-user { padding: 1.25rem 1.5rem; background: rgba(16, 185, 129, 0.08); border-bottom: 1px solid rgba(16, 185, 129, 0.2); }
+        
         .sidebar-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.65);
-            backdrop-filter: blur(4px);
-            z-index: 1040;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px);
+            z-index: 1040; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
         }
+        .sidebar-backdrop.show { opacity: 1; visibility: visible; }
 
-        .sidebar-backdrop.show {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        /* Sidebar Accordion Menu */
-        .sidebar-menu {
-            padding: 1rem 0;
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .sidebar-accordion .accordion-item {
-            background: transparent;
-            border: none;
-        }
-
+        .sidebar-menu { padding: 1rem 0; flex: 1; overflow-y: auto; }
+        .sidebar-accordion .accordion-item { background: transparent; border: none; }
         .sidebar-accordion .accordion-button {
-            background: transparent;
-            color: rgba(255, 255, 255, 0.85);
-            padding: 0.8rem 1.5rem;
-            font-weight: 600;
-            box-shadow: none;
-            border-left: 4px solid transparent;
+            background: transparent; color: rgba(255, 255, 255, 0.85); padding: 0.8rem 1.5rem; font-weight: 600; box-shadow: none; border-left: 4px solid transparent;
         }
-
-        .sidebar-accordion .accordion-button:not(.collapsed) {
-            background: rgba(16, 185, 129, 0.15);
-            color: #ffffff;
-            border-left-color: #10b981;
-        }
-
-        .sidebar-accordion .accordion-button::after {
-            filter: invert(1);
-        }
-
-        .sidebar-sub-menu {
-            padding-left: 1rem;
-            background: rgba(0, 0, 0, 0.2);
-        }
-
+        .sidebar-accordion .accordion-button:not(.collapsed) { background: rgba(16, 185, 129, 0.15); color: #ffffff; border-left-color: #10b981; }
+        .sidebar-accordion .accordion-button::after { filter: invert(1); }
+        .sidebar-sub-menu { padding-left: 1rem; background: rgba(0, 0, 0, 0.2); }
         .nav-item-link {
-            display: flex;
-            align-items: center;
-            padding: 0.75rem 1.5rem;
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            cursor: pointer;
+            display: flex; align-items: center; padding: 0.75rem 1.5rem; color: rgba(255, 255, 255, 0.8); text-decoration: none; font-weight: 500; transition: all 0.2s ease; cursor: pointer;
         }
+        .nav-item-link:hover, .nav-item-link.active { color: #34d399; background: rgba(16, 185, 129, 0.1); }
+        .nav-item-link i { font-size: 1.1rem; margin-right: 0.75rem; }
+        .sidebar-footer { padding: 1rem 1.5rem; border-top: 1px solid rgba(16, 185, 129, 0.2); }
 
-        .nav-item-link:hover, .nav-item-link.active {
-            color: #34d399;
-            background: rgba(16, 185, 129, 0.1);
-        }
-
-        .nav-item-link i {
-            font-size: 1.1rem;
-            margin-right: 0.75rem;
-        }
-
-        .sidebar-footer {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid rgba(16, 185, 129, 0.2);
-        }
-
-        /* Main Content Container */
         .main-content {
-            margin-left: var(--sidebar-width);
-            flex: 1;
-            padding: 2rem;
-            width: calc(100% - var(--sidebar-width));
-            transition: all 0.3s ease;
-            position: relative;
-            min-height: 100vh;
+            margin-left: var(--sidebar-width); flex: 1; padding: 2rem; width: calc(100% - var(--sidebar-width)); transition: all 0.3s ease; position: relative; min-height: 100vh;
         }
-
-        /* Watermark Container when view is cleared */
         .watermark-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-            user-select: none;
-            z-index: 0;
-            transition: opacity 0.3s ease;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; user-select: none; z-index: 0; transition: opacity 0.3s ease;
         }
+        .watermark-img { width: 320px; max-width: 80vw; height: auto; opacity: 0.15; filter: drop-shadow(0 0 15px rgba(52, 211, 153, 0.2)); }
 
-        .watermark-img {
-            width: 320px;
-            max-width: 80vw;
-            height: auto;
-            opacity: 0.15;
-            filter: drop-shadow(0 0 15px rgba(52, 211, 153, 0.2));
-        }
+        .content-panel { display: none; position: relative; z-index: 2; }
+        .content-panel.active-panel { display: block; }
+        .embedded-iframe { width: 100%; height: calc(100vh - 4rem); border: none; border-radius: 16px; background: rgba(4, 47, 46, 0.75); backdrop-filter: blur(16px); }
 
-        /* Dynamic View Switching Panels - All Hidden By Default */
-        .content-panel {
-            display: none;
-            position: relative;
-            z-index: 2;
-        }
-
-        .content-panel.active-panel {
-            display: block;
-        }
-
-        /* Embedded Dynamic Page IFrames */
-        .embedded-iframe {
-            width: 100%;
-            height: calc(100vh - 4rem);
-            border: none;
-            border-radius: 16px;
-            background: rgba(4, 47, 46, 0.75);
-            backdrop-filter: blur(16px);
-        }
-
-        /* Glass Cards */
         .glass-card { background: rgba(4, 47, 46, 0.75); backdrop-filter: blur(16px); border: 1.5px solid rgba(16, 185, 129, 0.35); border-radius: 16px; position: relative; }
         .filter-card-wrapper { position: relative; z-index: 10; }
         .grid-card-wrapper { position: relative; z-index: 1; }
@@ -484,32 +75,14 @@ usort($dynamic_components, function($a, $b) {
         .btn-glass-blue { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border: 1px solid rgba(56, 189, 248, 0.5); color: #ffffff; font-weight: 600; }
         .btn-glass-red { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); border: 1px solid rgba(248, 113, 113, 0.5); color: #ffffff; font-weight: 600; }
         .badge-blue { background: rgba(2, 132, 199, 0.35); border: 1px solid #38bdf8; color: #ffffff !important; text-shadow: 0 0 8px rgba(56, 189, 248, 0.6); }
-        
-        /* Grid Styling */
-        .table-glass { 
-            color: #ffffff !important; 
-            border-collapse: separate;
-            border-spacing: 0;
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .table-glass th { 
-            background: rgba(16, 185, 129, 0.3) !important; 
-            color: #ffffff !important; 
-            border: 1px solid rgba(16, 185, 129, 0.35) !important; 
-            text-shadow: 0 0 6px rgba(52, 211, 153, 0.8); 
-        }
-        .table-glass td { 
-            background: rgba(2, 44, 34, 0.6) !important; 
-            border: 1px solid rgba(16, 185, 129, 0.35) !important; 
-            color: #ffffff !important; 
-        }
-        .table-glass tbody tr:hover td { 
-            background-color: rgba(16, 185, 129, 0.25) !important; 
-        }
 
-        /* Accordion Dropdowns inside Filter View */
+        .table-glass { 
+            color: #ffffff !important; border-collapse: separate; border-spacing: 0; border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; overflow: hidden;
+        }
+        .table-glass th { background: rgba(16, 185, 129, 0.3) !important; color: #ffffff !important; border: 1px solid rgba(16, 185, 129, 0.35) !important; text-shadow: 0 0 6px rgba(52, 211, 153, 0.8); }
+        .table-glass td { background: rgba(2, 44, 34, 0.6) !important; border: 1px solid rgba(16, 185, 129, 0.35) !important; color: #ffffff !important; }
+        .table-glass tbody tr:hover td { background-color: rgba(16, 185, 129, 0.25) !important; }
+
         .comp-dropdown-btn { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(16, 185, 129, 0.4); color: #ffffff; padding: 0.25rem 0.5rem; border-radius: 4px; text-align: left; width: 100%; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 0.875rem; }
         .comp-dropdown-menu { background: #022c22; border: 1.5px solid rgba(16, 185, 129, 0.6); border-radius: 6px; padding: 0.5rem; max-height: 280px; overflow-y: auto; width: 100%; display: none; position: absolute; z-index: 1050; box-shadow: 0 10px 25px rgba(0,0,0,0.8); top: 100%; left: 0; }
         .comp-dropdown-menu.show { display: block; }
@@ -521,7 +94,7 @@ usort($dynamic_components, function($a, $b) {
         .comp-opt-item:hover { background: rgba(16, 185, 129, 0.4); }
 
         .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 44, 34, 0.85); backdrop-filter: blur(8px); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; }
-        .modal-glass { background: rgba(4, 47, 46, 0.95); border: 1.5px solid rgba(16, 185, 129, 0.5); border-radius: 16px; color: #ffffff; }
+        .modal-glass { background: rgba(4, 47, 46, 0.95); border: 1.5px solid rgba(16, 185, 129, 0.5); border-radius: 16px; color: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
 
         @media (max-width: 991.98px) {
             .sidebar { transform: translateX(-100%); }
@@ -534,10 +107,11 @@ usort($dynamic_components, function($a, $b) {
 
 <div id="loadingOverlay" class="spinner-overlay">
     <div class="spinner-border mb-3" style="width: 3rem; height: 3rem; color: #10b981;"></div>
-    <div class="text-glow-emerald fw-bold fs-5">PROCESSING OPERATION...</div>
+    <div class="text-glow-emerald fw-bold fs-5" id="loadingText">PROCESSING OPERATION...</div>
 </div>
 
-<div class="modal fade" id="alertModal" tabindex="-1">
+<!-- Center-Screen Popup Alert Modal -->
+<div class="modal fade" id="alertModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-glass p-3 text-center">
             <div class="modal-body fs-5 text-glow-emerald" id="alertModalBody"></div>
@@ -546,15 +120,13 @@ usort($dynamic_components, function($a, $b) {
     </div>
 </div>
 
-<!-- BACKDROP OVERLAY FOR MOBILE SIDEBAR -->
 <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
 
 <div class="app-wrapper">
-    <!-- SIDEBAR ACCORDION NAVIGATION -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
             <div class="d-flex align-items-center gap-2">
-                <img src="../logo.png" alt="Logo" class="sidebar-brand-logo">
+                <img src="../logo.png" alt="Logo" class="sidebar-brand-logo" onerror="this.style.display='none'">
                 <h4 class="sidebar-brand-title text-glow-emerald fw-bold m-0">SVC</h4>
             </div>
             <div class="sidebar-brand-subtitle fw-bold mt-1">Teacher Portal</div>
@@ -562,91 +134,77 @@ usort($dynamic_components, function($a, $b) {
         
         <div class="sidebar-user">
             <div class="small text-white opacity-75">LOGGED IN AS</div>
-            <div class="fw-bold text-glow-blue text-truncate">
-                <?= htmlspecialchars($teacher['firstname'] . ' ' . $teacher['lastname']) ?>
-            </div>
+            <div class="fw-bold text-glow-blue text-truncate" id="teacherNameDisplay">Loading...</div>
         </div>
 
         <nav class="sidebar-menu">
             <div class="accordion sidebar-accordion" id="sidebarMenuAccordion">
-                
-                <!-- ACCORDION: DASHBOARD & RECORDS MANAGEMENT -->
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="headingDashboard">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDashboard" aria-expanded="false" aria-controls="collapseDashboard">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDashboard">
                             <i class="bi bi-speedometer2 me-2"></i> Dashboard & Records
                         </button>
                     </h2>
-                    <div id="collapseDashboard" class="accordion-collapse collapse" aria-labelledby="headingDashboard" data-bs-parent="#sidebarMenuAccordion">
+                    <div id="collapseDashboard" class="accordion-collapse collapse" data-bs-parent="#sidebarMenuAccordion">
                         <div class="sidebar-sub-menu">
                             <a class="nav-item-link" onclick="switchView('viewUpload', this)">
-                                <i class="bi bi-cloud-upload"></i>
-                                <span>Upload Records (CSV)</span>
+                                <i class="bi bi-cloud-upload"></i><span>Upload Records (CSV)</span>
                             </a>
                             <a class="nav-item-link" onclick="switchView('viewFilterGrid', this)">
-                                <i class="bi bi-funnel"></i>
-                                <span>Filter View & Grid</span>
+                                <i class="bi bi-funnel"></i><span>Filter View & Grid</span>
                             </a>
                         </div>
                     </div>
                 </div>
 
-                <!-- ACCORDION: NAVIGATION -->
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="headingNavigation">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNavigation" aria-expanded="false" aria-controls="collapseNavigation">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNavigation">
                             <i class="bi bi-compass me-2"></i> Navigation
                         </button>
                     </h2>
-                    <div id="collapseNavigation" class="accordion-collapse collapse" aria-labelledby="headingNavigation" data-bs-parent="#sidebarMenuAccordion">
+                    <div id="collapseNavigation" class="accordion-collapse collapse" data-bs-parent="#sidebarMenuAccordion">
                         <div class="sidebar-sub-menu">
                             <a class="nav-item-link" onclick="switchView('viewActivityReport', this)">
-                                <i class="bi bi-person-check"></i>
-                                <span>Activity Report</span>
+                                <i class="bi bi-person-check"></i><span>Activity Report</span>
                             </a>
                             <a class="nav-item-link" onclick="switchView('viewSearchStudent', this)">
-                                <i class="bi bi-search"></i>
-                                <span>Search Student</span>
+                                <i class="bi bi-search"></i><span>Search Student</span>
                             </a>
                             <a class="nav-item-link" onclick="switchView('viewEditProfile', this)">
-                                <i class="bi bi-gear"></i>
-                                <span>Edit Profile</span>
+                                <i class="bi bi-gear"></i><span>Edit Profile</span>
                             </a>
                         </div>
                     </div>
                 </div>
-
             </div>
         </nav>
 
         <div class="sidebar-footer">
-            <a href="../logout.php" class="btn btn-danger w-100 btn-sm">
+            <button onclick="Auth.clear()" class="btn btn-danger w-100 btn-sm">
                 <i class="bi bi-box-arrow-right me-1"></i> LOGOUT
-            </a>
+            </button>
         </div>
     </aside>
 
-    <!-- RIGHT-SIDE MAIN CONTENT PANEL AREA -->
     <main class="main-content">
-        <!-- Mobile Sidebar Toggle Button -->
         <div class="d-lg-none mb-3">
             <button class="btn btn-glass-green btn-sm" type="button" onclick="toggleMobileSidebar()">
                 <i class="bi bi-list me-1"></i> MENU
             </button>
         </div>
 
-        <!-- WATERMARK LOGO SHOWN WHEN MAIN VIEW IS CLEAR -->
         <div class="watermark-container" id="watermarkContainer">
-            <img src="../logo.png" alt="St. Vincent College Logo" class="watermark-img">
+            <img src="../logo.png" alt="St. Vincent College Logo" class="watermark-img" onerror="this.style.display='none'">
         </div>
 
-        <!-- 1. VIEW PANEL: UPLOAD RECORDS (CSV) -->
+        <!-- PANEL 1: CSV UPLOAD -->
         <div id="viewUpload" class="content-panel mb-4">
             <div class="glass-card p-4">
                 <h5 class="text-glow-emerald fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>UPLOAD RECORDS (CSV)</h5>
-                <form method="POST" enctype="multipart/form-data" onsubmit="document.getElementById('loadingOverlay').style.display='flex'">
+                <form id="uploadCsvForm">
                     <div class="mb-3">
-                        <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                        <input type="file" id="csvFileInput" class="form-control" accept=".csv" required>
                     </div>
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <button type="submit" class="btn btn-glass-green px-4">UPLOAD & UPDATE</button>
@@ -656,285 +214,213 @@ usort($dynamic_components, function($a, $b) {
             </div>
         </div>
 
-        <!-- 2. COMBINED VIEW PANEL: FILTER VIEW & STUDENT RECORDS GRID -->
+        <!-- PANEL 2: FILTER & GRID VIEW -->
         <div id="viewFilterGrid" class="content-panel">
-            <!-- Filter View Section -->
             <div class="glass-card p-4 mb-4 filter-card-wrapper">
                 <h5 class="text-glow-emerald fw-bold mb-3"><i class="bi bi-funnel me-2"></i>FILTER VIEW</h5>
-                <form method="GET" action="" class="row g-3" onsubmit="document.getElementById('loadingOverlay').style.display='flex'">
-                    <input type="hidden" name="show_view" value="viewFilterGrid">
+                <div class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label text-white small">SCHOOL YEAR</label>
-                        <select name="sy" class="form-select form-select-sm">
-                            <?php for ($y = 2025; $y <= 2049; $y++): $sy_val = $y . "-" . ($y + 1); ?>
-                                <option value="<?= $sy_val ?>" <?= $selected_sy === $sy_val ? 'selected' : '' ?>><?= $sy_val ?></option>
-                            <?php endfor; ?>
-                        </select>
+                        <select id="filterSy" class="form-select form-select-sm"></select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label text-white small">SEMESTER</label>
-                        <select name="sem" class="form-select form-select-sm">
-                            <option value="1" <?= $selected_sem_code === '1' ? 'selected' : '' ?>>First Semester</option>
-                            <option value="2" <?= $selected_sem_code === '2' ? 'selected' : '' ?>>Second Semester</option>
-                            <option value="3" <?= $selected_sem_code === '3' ? 'selected' : '' ?>>Summer</option>
+                        <select id="filterSem" class="form-select form-select-sm">
+                            <option value="1">First Semester</option>
+                            <option value="2">Second Semester</option>
+                            <option value="3">Summer</option>
                         </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label text-white small">SUBJECT</label>
-                        <select name="subject" class="form-select form-select-sm">
+                        <select id="filterSubject" class="form-select form-select-sm">
                             <option value="">ALL SUBJECTS</option>
-                            <?php foreach($all_available_subjects as $sub_item): ?>
-                                <option value="<?= htmlspecialchars($sub_item) ?>" <?= $selected_subject === $sub_item ? 'selected' : '' ?>><?= htmlspecialchars($sub_item) ?></option>
-                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="col-md-3" style="position: relative;">
                         <label class="form-label text-white small">COMPONENT</label>
-                        <input type="hidden" name="component" id="selectedComponentInput" value="<?= htmlspecialchars($selected_component) ?>">
-                        
+                        <input type="hidden" id="selectedComponentInput" value="">
                         <div class="comp-dropdown-btn" onclick="toggleComponentMenu(event)">
-                            <span id="selectedComponentText"><?= !empty($selected_component) ? htmlspecialchars($selected_component) : 'ALL COMPONENTS' ?></span>
+                            <span id="selectedComponentText">ALL COMPONENTS</span>
                             <i class="bi bi-chevron-down"></i>
                         </div>
-
                         <div class="comp-dropdown-menu" id="compDropdownMenu">
                             <div class="comp-opt-item fw-bold text-success" onclick="selectComponent('')">ALL COMPONENTS</div>
-                            
-                            <?php if (!empty($prelim_comps)): ?>
-                                <button type="button" class="accordion-header-btn" onclick="toggleAccordionGroup(event, 'accPrelim')">
-                                    PRELIM <i class="bi bi-chevron-right"></i>
-                                </button>
-                                <div class="accordion-item-list" id="accPrelim">
-                                    <?php foreach ($prelim_comps as $comp): ?>
-                                        <div class="comp-opt-item" onclick="selectComponent('<?= htmlspecialchars($comp, ENT_QUOTES) ?>')"><?= htmlspecialchars($comp) ?></div>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
-
-                            <?php if (!empty($midterm_comps)): ?>
-                                <button type="button" class="accordion-header-btn" onclick="toggleAccordionGroup(event, 'accMidterm')">
-                                    MIDTERM <i class="bi bi-chevron-right"></i>
-                                </button>
-                                <div class="accordion-item-list" id="accMidterm">
-                                    <?php foreach ($midterm_comps as $comp): ?>
-                                        <div class="comp-opt-item" onclick="selectComponent('<?= htmlspecialchars($comp, ENT_QUOTES) ?>')"><?= htmlspecialchars($comp) ?></div>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
-
-                            <?php if (!empty($final_comps)): ?>
-                                <button type="button" class="accordion-header-btn" onclick="toggleAccordionGroup(event, 'accFinal')">
-                                    FINAL <i class="bi bi-chevron-right"></i>
-                                </button>
-                                <div class="accordion-item-list" id="accFinal">
-                                    <?php foreach ($final_comps as $comp): ?>
-                                        <div class="comp-opt-item" onclick="selectComponent('<?= htmlspecialchars($comp, ENT_QUOTES) ?>')"><?= htmlspecialchars($comp) ?></div>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
-
-                            <?php if (!empty($other_comps)): ?>
-                                <button type="button" class="accordion-header-btn" onclick="toggleAccordionGroup(event, 'accOther')">
-                                    OTHER <i class="bi bi-chevron-right"></i>
-                                </button>
-                                <div class="accordion-item-list" id="accOther">
-                                    <?php foreach ($other_comps as $comp): ?>
-                                        <div class="comp-opt-item" onclick="selectComponent('<?= htmlspecialchars($comp, ENT_QUOTES) ?>')"><?= htmlspecialchars($comp) ?></div>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
+                            <div id="componentGroupContainer"></div>
                         </div>
                     </div>
                     <div class="col-12 mt-3">
-                        <button type="submit" class="btn btn-glass-green w-100 py-1"><i class="bi bi-filter"></i> APPLY FILTERS</button>
+                        <button onclick="applyFilters()" class="btn btn-glass-green w-100 py-1"><i class="bi bi-filter"></i> APPLY FILTERS</button>
                     </div>
-                </form>
+                </div>
             </div>
 
-            <!-- Student Records Grid Section -->
             <div class="glass-card p-4 grid-card-wrapper">
-                <form method="POST" action="" id="deleteForm" onsubmit="return confirmDelete(event)">
-                    <input type="hidden" name="action" value="delete_records">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-glow-emerald fw-bold m-0"><i class="bi bi-table me-2"></i>STUDENT RECORDS GRID</h5>
+                    <button onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3">
+                        <i class="bi bi-trash me-1"></i> DELETE SELECTED RECORDS
+                    </button>
+                </div>
 
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="text-glow-emerald fw-bold m-0"><i class="bi bi-table me-2"></i>STUDENT RECORDS GRID</h5>
-                        <?php if (!empty($pivoted_students)): ?>
-                            <button type="submit" class="btn btn-glass-red btn-sm px-3">
-                                <i class="bi bi-trash me-1"></i> DELETE SELECTED RECORDS
-                            </button>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-glass text-center align-middle">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40px;">
-                                        <input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)">
-                                    </th>
-                                    <th>STUDENT ID</th>
-                                    <th>NAME</th>
-                                    <th>COURSE</th>
-                                    <th>SUBJECT</th>
-                                    <?php foreach ($dynamic_components as $comp): ?>
-                                        <th class="text-glow-blue"><?= htmlspecialchars($comp) ?></th>
-                                    <?php endforeach; ?>
-                                    <th>SCHEDTAG</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (!empty($pivoted_students)): ?>
-                                    <?php foreach ($pivoted_students as $student): 
-                                        $row_key = $student['studentid'] . '|' . $student['subjects'];
-                                    ?>
-                                        <tr>
-                                            <td>
-                                                <input type="checkbox" name="delete_keys[]" value="<?= htmlspecialchars($row_key) ?>" class="form-check-input record-checkbox">
-                                            </td>
-                                            <td class="fw-bold text-white"><?= htmlspecialchars($student['studentid']) ?></td>
-                                            <td class="text-white"><?= htmlspecialchars($student['name']) ?></td>
-                                            <td class="text-white"><?= htmlspecialchars($student['course']) ?></td>
-                                            <td><span class="badge badge-blue"><?= htmlspecialchars($student['subjects']) ?></span></td>
-                                            <?php foreach ($dynamic_components as $comp): ?>
-                                                <td class="fw-bold text-glow-emerald">
-                                                    <?= htmlspecialchars($student['results'][$comp] ?? '-') ?>
-                                                </td>
-                                            <?php endforeach; ?>
-                                            <td class="text-white"><?= htmlspecialchars($student['schedtag']) ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <tr>
-                                        <td colspan="<?= 6 + count($dynamic_components) ?>" class="text-white opacity-75 p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </form>
+                <div class="table-responsive">
+                    <table class="table table-glass text-center align-middle" id="recordsGridTable">
+                        <thead>
+                            <tr id="gridHeaderRow">
+                                <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>
+                                <th>STUDENT ID</th>
+                                <th>NAME</th>
+                                <th>COURSE</th>
+                                <th>SUBJECT</th>
+                                <th>SCHEDTAG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gridTableBody">
+                            <tr><td colspan="6" class="text-white opacity-75 p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- 3. DYNAMIC EMBEDDED NAVIGATION PANELS -->
+        <!-- PANEL 3: EMBEDDED IFRAME PANELS -->
         <div id="viewActivityReport" class="content-panel">
-            <iframe src="student_activity_report.php" class="embedded-iframe"></iframe>
+            <iframe src="student_activity_report.html" class="embedded-iframe"></iframe>
         </div>
 
         <div id="viewSearchStudent" class="content-panel">
-            <iframe src="search_student.php" class="embedded-iframe"></iframe>
+            <iframe src="search_student.html" class="embedded-iframe"></iframe>
         </div>
 
         <div id="viewEditProfile" class="content-panel">
-            <iframe src="setup.php" class="embedded-iframe"></iframe>
+            <iframe src="setup.html" class="embedded-iframe"></iframe>
         </div>
-
     </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// --- MOBILE SIDEBAR AUTO-COLLAPSE & BACKDROP FUNCTIONS ---
+Auth.requireAuth('teacher');
+const teacher = Auth.getUser();
+document.getElementById('teacherNameDisplay').innerText = `${teacher.firstname || ''} ${teacher.lastname || ''}`;
+
+let rawTeacherRecords = [];
+
+function showAlert(msg) {
+    document.getElementById('alertModalBody').innerText = msg;
+    new bootstrap.Modal(document.getElementById('alertModal')).show();
+}
+
+function showLoading(show, message = "PROCESSING OPERATION...") {
+    document.getElementById('loadingText').innerText = message;
+    document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+}
+
+function autoCapitalizeInputs() {
+    document.querySelectorAll('input[type="text"]').forEach(input => {
+        input.style.textTransform = 'uppercase';
+        input.addEventListener('input', function() { this.value = this.value.toUpperCase(); });
+    });
+}
+
 function toggleMobileSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const backdrop = document.getElementById('sidebarBackdrop');
-    if (sidebar) sidebar.classList.toggle('show');
-    if (backdrop) backdrop.classList.toggle('show');
+    document.getElementById('sidebar')?.classList.toggle('show');
+    document.getElementById('sidebarBackdrop')?.classList.toggle('show');
 }
 
 function closeMobileSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const backdrop = document.getElementById('sidebarBackdrop');
-    if (sidebar) sidebar.classList.remove('show');
-    if (backdrop) backdrop.classList.remove('show');
+    document.getElementById('sidebar')?.classList.remove('show');
+    document.getElementById('sidebarBackdrop')?.classList.remove('show');
 }
 
-// Reset mobile sidebar state on window resize
-window.addEventListener('resize', function() {
-    if (window.innerWidth >= 992) {
-        closeMobileSidebar();
-    }
-});
+window.addEventListener('resize', () => { if (window.innerWidth >= 992) closeMobileSidebar(); });
 
-// Clear view helper function and show watermark
 function clearMainView() {
-    document.querySelectorAll('.content-panel').forEach(panel => {
-        panel.classList.remove('active-panel');
-    });
-    document.querySelectorAll('.sidebar-sub-menu .nav-item-link').forEach(link => {
-        link.classList.remove('active');
-    });
-    
-    // Show Watermark
-    const watermark = document.getElementById('watermarkContainer');
-    if (watermark) {
-        watermark.style.display = 'flex';
-    }
+    document.querySelectorAll('.content-panel').forEach(panel => panel.classList.remove('active-panel'));
+    document.querySelectorAll('.sidebar-sub-menu .nav-item-link').forEach(link => link.classList.remove('active'));
+    document.getElementById('watermarkContainer').style.display = 'flex';
 }
 
-// Switch dynamic view content panels on the right side of sidebar
 function switchView(viewId, element) {
     clearMainView();
-
-    const targetPanel = document.getElementById(viewId);
-    if (targetPanel) {
-        targetPanel.classList.add('active-panel');
-    }
-
-    if (element) {
-        element.classList.add('active');
-    }
-
-    // Hide Watermark when a view panel is active
-    const watermark = document.getElementById('watermarkContainer');
-    if (watermark) {
-        watermark.style.display = 'none';
-    }
-
-    // Auto-close mobile sidebar when a selection is made
+    document.getElementById(viewId)?.classList.add('active-panel');
+    element?.classList.add('active');
+    document.getElementById('watermarkContainer').style.display = 'none';
     closeMobileSidebar();
 }
 
-// Clear main view & show watermark when any accordion header collapses
-document.addEventListener("DOMContentLoaded", function() {
-    const accordionCollapses = document.querySelectorAll('.sidebar-accordion .accordion-collapse');
-    accordionCollapses.forEach(el => {
-        el.addEventListener('hidden.bs.collapse', function () {
-            clearMainView();
-        });
-    });
-
-    // Auto-collapse mobile menu on clicking any navigation link
-    document.querySelectorAll('.nav-item-link').forEach(link => {
-        link.addEventListener('click', function() {
-            closeMobileSidebar();
-        });
-    });
-});
-
-function toggleComponentMenu(e) {
-    e.stopPropagation();
-    document.getElementById('compDropdownMenu').classList.toggle('show');
+function initSyDropdown() {
+    const sySelect = document.getElementById('filterSy');
+    sySelect.innerHTML = '';
+    for (let y = 2025; y <= 2049; y++) {
+        const val = `${y}-${y + 1}`;
+        sySelect.innerHTML += `<option value="${val}">${val}</option>`;
+    }
 }
+
+async function loadTeacherDashboard() {
+    showLoading(true, "LOADING TEACHER RECORDS...");
+    initSyDropdown();
+
+    const { data, error } = await _supabase
+        .from('tblrecords')
+        .select('*')
+        .eq('teacherid', teacher.teacherid);
+
+    showLoading(false);
+    if (!error && data) {
+        rawTeacherRecords = data;
+        populateFilterOptions();
+        applyFilters();
+    }
+}
+
+function populateFilterOptions() {
+    const subjectSelect = document.getElementById('filterSubject');
+    subjectSelect.innerHTML = '<option value="">ALL SUBJECTS</option>';
+    
+    const subjectsSet = new Set();
+    const prelims = [], midterms = [], finals = [], others = [];
+
+    rawTeacherRecords.forEach(r => {
+        if (r.subjects) subjectsSet.add(r.subjects.toUpperCase());
+        const comp = r.component ? r.component.toUpperCase() : '';
+        if (comp.includes('PRELIM') && !prelims.includes(comp)) prelims.push(comp);
+        else if (comp.includes('MIDTERM') && !midterms.includes(comp)) midterms.push(comp);
+        else if (comp.includes('FINAL') && !finals.includes(comp)) finals.push(comp);
+        else if (comp && !others.includes(comp)) others.push(comp);
+    });
+
+    Array.from(subjectsSet).sort().forEach(s => {
+        subjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
+    });
+
+    const groupContainer = document.getElementById('componentGroupContainer');
+    groupContainer.innerHTML = '';
+    renderComponentGroup(groupContainer, 'PRELIM', 'accPrelim', prelims);
+    renderComponentGroup(groupContainer, 'MIDTERM', 'accMidterm', midterms);
+    renderComponentGroup(groupContainer, 'FINAL', 'accFinal', finals);
+    renderComponentGroup(groupContainer, 'OTHER', 'accOther', others);
+}
+
+function renderComponentGroup(container, label, id, list) {
+    if (list.length === 0) return;
+    let itemsHtml = list.map(c => `<div class="comp-opt-item" onclick="selectComponent('${c}')">${c}</div>`).join('');
+    container.innerHTML += `
+        <button type="button" class="accordion-header-btn" onclick="toggleAccordionGroup(event, '${id}')">
+            ${label} <i class="bi bi-chevron-right"></i>
+        </button>
+        <div class="accordion-item-list" id="${id}">${itemsHtml}</div>`;
+}
+
+function toggleComponentMenu(e) { e.stopPropagation(); document.getElementById('compDropdownMenu').classList.toggle('show'); }
 
 function toggleAccordionGroup(e, targetId) {
     e.stopPropagation();
     const targetGroup = document.getElementById(targetId);
     const isOpen = targetGroup.classList.contains('open');
-    
     document.querySelectorAll('.accordion-item-list').forEach(el => el.classList.remove('open'));
-    document.querySelectorAll('.accordion-header-btn i').forEach(icon => {
-        icon.classList.remove('bi-chevron-down');
-        icon.classList.add('bi-chevron-right');
-    });
-
-    if (!isOpen) {
-        targetGroup.classList.add('open');
-        const icon = e.currentTarget.querySelector('i');
-        if(icon) {
-            icon.classList.remove('bi-chevron-right');
-            icon.classList.add('bi-chevron-down');
-        }
-    }
+    if (!isOpen) targetGroup.classList.add('open');
 }
 
 function selectComponent(val) {
@@ -943,59 +429,168 @@ function selectComponent(val) {
     document.getElementById('compDropdownMenu').classList.remove('show');
 }
 
-document.addEventListener('click', function(e) {
-    const dropdown = document.getElementById('compDropdownMenu');
-    if (dropdown && !dropdown.contains(e.target)) {
-        dropdown.classList.remove('show');
+function applyFilters() {
+    const sy = document.getElementById('filterSy').value;
+    const sem = document.getElementById('filterSem').value;
+    const sub = document.getElementById('filterSubject').value;
+    const comp = document.getElementById('selectedComponentInput').value;
+
+    const filtered = rawTeacherRecords.filter(r => {
+        const matchSy = !sy || r.schoolyear === sy;
+        const matchSem = !sem || String(r.semester) === String(sem) || (sem === '1' && r.semester === 'First Semester') || (sem === '2' && r.semester === 'Second Semester') || (sem === '3' && r.semester === 'Summer');
+        const matchSub = !sub || (r.subjects && r.subjects.toUpperCase() === sub);
+        const matchComp = !comp || (r.component && r.component.toUpperCase() === comp);
+        return matchSy && matchSem && matchSub && matchComp;
+    });
+
+    renderRecordsGrid(filtered);
+}
+
+function renderRecordsGrid(records) {
+    const tbody = document.getElementById('gridTableBody');
+    const theadRow = document.getElementById('gridHeaderRow');
+    
+    const pivoted = {};
+    const dynamicComps = new Set();
+
+    records.forEach(r => {
+        const key = `${r.studentid}_${r.subjects}`;
+        if (!pivoted[key]) {
+            pivoted[key] = {
+                studentid: r.studentid,
+                name: `${r.lastname || ''}, ${r.firstname || ''}`,
+                course: r.course || '',
+                subjects: r.subjects || '',
+                schedtag: r.schedtag || '',
+                results: {}
+            };
+        }
+        pivoted[key].results[r.component] = r.result;
+        if (r.component) dynamicComps.add(r.component);
+    });
+
+    const compList = Array.from(dynamicComps);
+    
+    let headerHtml = `
+        <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>
+        <th>STUDENT ID</th><th>NAME</th><th>COURSE</th><th>SUBJECT</th>`;
+    compList.forEach(c => { headerHtml += `<th class="text-glow-blue">${c}</th>`; });
+    headerHtml += `<th>SCHEDTAG</th>`;
+    theadRow.innerHTML = headerHtml;
+
+    const pivotKeys = Object.keys(pivoted);
+    if (pivotKeys.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${6 + compList.length}" class="text-white opacity-75 p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>`;
+        return;
     }
-});
+
+    tbody.innerHTML = '';
+    pivotKeys.forEach(k => {
+        const st = pivoted[k];
+        let rowHtml = `
+            <tr>
+                <td><input type="checkbox" value="${st.studentid}|${st.subjects}" class="form-check-input record-checkbox"></td>
+                <td class="fw-bold text-white">${st.studentid}</td>
+                <td class="text-white">${st.name}</td>
+                <td class="text-white">${st.course}</td>
+                <td><span class="badge badge-blue">${st.subjects}</span></td>`;
+        
+        compList.forEach(c => {
+            rowHtml += `<td class="fw-bold text-glow-emerald">${st.results[c] || '-'}</td>`;
+        });
+
+        rowHtml += `<td class="text-white">${st.schedtag}</td></tr>`;
+        tbody.innerHTML += rowHtml;
+    });
+}
 
 function toggleSelectAll(master) {
-    const checkboxes = document.querySelectorAll('.record-checkbox');
-    checkboxes.forEach(cb => cb.checked = master.checked);
+    document.querySelectorAll('.record-checkbox').forEach(cb => cb.checked = master.checked);
 }
 
-function confirmDelete(e) {
+async function deleteSelectedRecords() {
     const checked = document.querySelectorAll('.record-checkbox:checked');
     if (checked.length === 0) {
-        e.preventDefault();
-        document.getElementById('alertModalBody').innerText = 'PLEASE SELECT AT LEAST ONE RECORD TO DELETE.';
-        new bootstrap.Modal(document.getElementById('alertModal')).show();
-        return false;
+        showAlert('PLEASE SELECT AT LEAST ONE RECORD TO DELETE.');
+        return;
     }
-    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE ${checked.length} SELECTED STUDENT RECORD ENTRY(IES)? THIS ACTION CANNOT BE UNDONE.`)) {
-        e.preventDefault();
-        return false;
+
+    showLoading(true, "DELETING RECORDS...");
+    let deletedCount = 0;
+
+    for (let cb of checked) {
+        const parts = cb.value.split('|');
+        const stuId = parts[0];
+        const sub = parts[1];
+
+        const { error } = await _supabase.from('tblrecords')
+            .delete()
+            .eq('teacherid', teacher.teacherid)
+            .eq('studentid', stuId)
+            .eq('subjects', sub);
+
+        if (!error) deletedCount++;
     }
-    document.getElementById('loadingOverlay').style.display = 'flex';
-    return true;
+
+    showLoading(false);
+    showAlert(`SUCCESSFULLY DELETED RECORD ENTRY(IES).`);
+    loadTeacherDashboard();
 }
 
-// Automatically re-open the Filter/Grid view if form filters were just submitted
-<?php if (isset($_GET['show_view']) && $_GET['show_view'] === 'viewFilterGrid'): ?>
-document.addEventListener("DOMContentLoaded", function() {
-    switchView('viewFilterGrid', null);
-    
-    // Auto expand dashboard accordion header
-    const dashCollapse = document.getElementById('collapseDashboard');
-    if (dashCollapse) {
-        new bootstrap.Collapse(dashCollapse, { show: true });
-    }
-});
-<?php endif; ?>
+document.getElementById('uploadCsvForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById('csvFileInput');
+    if (!fileInput.files.length) return;
 
-<?php if (!empty($message)): ?>
-document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById('alertModalBody').innerText = <?= json_encode($message) ?>;
-    new bootstrap.Modal(document.getElementById('alertModal')).show();
+    showLoading(true, "PROCESSING CSV FILE...");
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async function(e) {
+        const lines = e.target.result.split('\n');
+        let inserted = 0;
+        
+        for (let i = 1; i < lines.length; i++) {
+            const row = lines[i].split(',').map(item => item ? item.trim() : '');
+            if (row.length >= 11 && row[0] && row[6] && row[7]) {
+                const payload = {
+                    studentid: row[0].toUpperCase(),
+                    teacherid: teacher.teacherid,
+                    lastname: row[2].toUpperCase(),
+                    firstname: row[3].toUpperCase(),
+                    course: row[4].toUpperCase(),
+                    schedtag: row[5].toUpperCase(),
+                    subjects: row[6].toUpperCase(),
+                    component: row[7].toUpperCase(),
+                    result: row[8].toUpperCase(),
+                    schoolyear: row[9].toUpperCase(),
+                    semester: row[10].toUpperCase()
+                };
+
+                const { error } = await _supabase.from('tblrecords').upsert([payload]);
+                if (!error) inserted++;
+            }
+        }
+
+        showLoading(false);
+        showAlert(`CSV PROCESSED: SUCCESSFULLY PROCESSED RECORDS.`);
+        fileInput.value = '';
+        loadTeacherDashboard();
+    };
+
+    reader.readAsText(file);
 });
-<?php endif; ?>
-<?php if (!empty($error)): ?>
+
 document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById('alertModalBody').innerText = <?= json_encode($error) ?>;
-    new bootstrap.Modal(document.getElementById('alertModal')).show();
+    autoCapitalizeInputs();
+    document.querySelectorAll('.sidebar-accordion .accordion-collapse').forEach(el => {
+        el.addEventListener('hidden.bs.collapse', clearMainView);
+    });
+    document.querySelectorAll('.nav-item-link').forEach(link => {
+        link.addEventListener('click', closeMobileSidebar);
+    });
+    loadTeacherDashboard();
 });
-<?php endif; ?>
 </script>
 </body>
 </html>
