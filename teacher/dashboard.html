@@ -382,6 +382,15 @@ function populateFilterOptions() {
     const subjectsSet = new Set();
     const prelims = [], midterms = [], finals = [], others = [];
 
+    // 1. Parse subjects assigned in the teacher user profile (e.g., "CS101, CS102, IT203")
+    if (teacher.subjecthandled) {
+        teacher.subjecthandled.split(',').forEach(sub => {
+            const cleaned = sub.trim().toUpperCase();
+            if (cleaned) subjectsSet.add(cleaned);
+        });
+    }
+
+    // 2. Parse subjects from uploaded student records in tblrecords
     rawTeacherRecords.forEach(r => {
         if (r.subjects) subjectsSet.add(r.subjects.toUpperCase());
         const comp = r.component ? r.component.toUpperCase() : '';
@@ -391,6 +400,7 @@ function populateFilterOptions() {
         else if (comp && !others.includes(comp)) others.push(comp);
     });
 
+    // 3. Populate dropdown with all unique sorted subjects
     Array.from(subjectsSet).sort().forEach(s => {
         subjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
     });
