@@ -239,7 +239,7 @@ document.getElementById('teacherLoginForm').addEventListener('submit', async (e)
     const pass = document.getElementById('teacherPass').value;
 
     const { data, error } = await _supabase
-        .from('tblteacheruser')
+        .from('tblTeacherUser')
         .select('*')
         .eq('teacherid', id)
         .eq('password', pass)
