@@ -9,16 +9,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../js/supabase-config.js"></script>
     <style>
-        :root { 
-            --sidebar-width: 280px; 
-        }
+        :root { --sidebar-width: 280px; }
 
-        /* 1. Light Ambient Canvas with Soft Glow Backgrounds */
+        /* 1. Ambient Light Background Canvas with Radial Glows */
         body { 
             background-color: #f1f5f9; 
             background-image: 
-                radial-gradient(circle at 10% 20%, rgba(14, 165, 233, 0.22) 0%, transparent 40%),
-                radial-gradient(circle at 85% 15%, rgba(16, 185, 129, 0.22) 0%, transparent 40%),
+                radial-gradient(circle at 10% 20%, rgba(14, 165, 233, 0.22) 0%, transparent 45%),
+                radial-gradient(circle at 85% 15%, rgba(16, 185, 129, 0.22) 0%, transparent 45%),
                 radial-gradient(circle at 50% 80%, rgba(245, 158, 11, 0.18) 0%, transparent 50%);
             background-attachment: fixed;
             min-height: 100vh; 
@@ -27,9 +25,12 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
+        .text-glow-emerald { color: #0f172a !important; text-shadow: none; }
+        .text-glow-blue { color: #0284c7 !important; text-shadow: none; }
+
         .app-wrapper { display: flex; min-height: 100vh; }
 
-        /* Sidebar Glassmorphic Design */
+        /* Sidebar Styling */
         .sidebar {
             width: var(--sidebar-width); 
             background: rgba(15, 23, 42, 0.85); 
@@ -42,37 +43,25 @@
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
         }
 
-        .sidebar-brand { 
-            padding: 1.25rem 1.5rem; 
-            border-bottom: 1px solid rgba(255, 255, 255, 0.15); 
-        }
-        .sidebar-brand-logo { 
-            width: 38px; height: 38px; object-fit: contain; 
-            filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.6)); 
-        }
-        .sidebar-brand-title { 
-            font-size: 1.5rem; letter-spacing: 1px; color: #ffffff;
-            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
-        }
-        .sidebar-brand-subtitle { 
-            font-size: 0.85rem; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;
-        }
-        
+        .sidebar-brand { padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.15); }
+        .sidebar-brand-logo { width: 38px; height: 38px; object-fit: contain; filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.6)); }
+        .sidebar-brand-title { font-size: 1.5rem; letter-spacing: 1px; color: #ffffff; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .sidebar-brand-subtitle { font-size: 0.85rem; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+
         .sidebar-user { 
             padding: 1.25rem 1.5rem; 
             background: linear-gradient(135deg, rgba(14, 165, 233, 0.25) 0%, rgba(16, 185, 129, 0.25) 100%); 
             border-bottom: 1px solid rgba(255, 255, 255, 0.15); 
             display: flex; align-items: center; gap: 12px;
         }
-        
-        /* Modern Hero Avatar Circle */
+
         .avatar-circle {
-            width: 44px; height: 44px; border-radius: 50%;
+            width: 42px; height: 42px; border-radius: 50%;
             background: linear-gradient(135deg, #38bdf8 0%, #10b981 100%);
             border: 2px solid rgba(255, 255, 255, 0.8);
             box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
             display: flex; align-items: center; justify-content: center;
-            font-weight: 800; color: #ffffff; font-size: 1.2rem;
+            font-weight: 800; color: #ffffff; font-size: 1.1rem;
         }
 
         .sidebar-backdrop {
@@ -111,59 +100,57 @@
         .content-panel.active-panel { display: block; }
         .embedded-iframe { width: 100%; height: calc(100vh - 4rem); border: none; border-radius: 20px; background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(18px); border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
 
-        /* 2. Glassmorphism & Visual Effects */
+        /* 2. Glassmorphic Cards */
         .glass-card { 
             background: rgba(255, 255, 255, 0.65); 
             backdrop-filter: blur(18px); 
             -webkit-backdrop-filter: blur(18px);
-            border: 1px solid rgba(255, 255, 255, 0.8); 
+            border: 1px solid rgba(255, 255, 255, 0.85); 
             border-radius: 20px; 
             position: relative; 
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
         .glass-card:hover {
-            transform: translateY(-4px);
+            transform: translateY(-3px);
             box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
         }
 
-        /* Glassmorphic Cards Gradients */
         .card-header-gradient {
             background: linear-gradient(135deg, rgba(14, 165, 233, 0.95) 0%, rgba(16, 185, 129, 0.95) 85%);
             border: 1px solid rgba(255, 255, 255, 0.45);
             color: #ffffff !important;
             border-radius: 18px;
-            box-shadow: 0 8px 24px rgba(14, 165, 233, 0.25);
+            box-shadow: 0 8px 24px rgba(14, 165, 233, 0.22);
         }
 
         .filter-card-wrapper { position: relative; z-index: 10; }
         .grid-card-wrapper { position: relative; z-index: 1; }
 
-        /* Form & Dropdown Controls */
+        /* Form & Input Controls */
         .form-control, .form-select { 
             background: rgba(255, 255, 255, 0.75) !important; 
-            border: 1px solid rgba(255, 255, 255, 0.8) !important; 
+            border: 1px solid rgba(255, 255, 255, 0.85) !important; 
             color: #0f172a !important; 
             font-weight: 600;
             border-radius: 10px;
             text-transform: uppercase; 
             backdrop-filter: blur(10px);
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
         }
         .form-select option { background: #ffffff; color: #0f172a; }
-        
-        /* High Contrast Glowing Buttons */
+
+        /* Glass Buttons */
         .btn-glass-green { 
             background: linear-gradient(135deg, #10b981 0%, #047857 100%); 
-            border: 1px solid rgba(255, 255, 255, 0.45); 
+            border: 1px solid rgba(255, 255, 255, 0.5); 
             color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
         }
-        .btn-glass-green:hover { color: #ffffff; opacity: 0.95; transform: translateY(-1px); }
+        .btn-glass-green:hover { color: #ffffff; opacity: 0.95; }
 
         .btn-glass-blue { 
             background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); 
-            border: 1px solid rgba(255, 255, 255, 0.45); 
+            border: 1px solid rgba(255, 255, 255, 0.5); 
             color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
         }
@@ -171,18 +158,20 @@
 
         .btn-glass-red { 
             background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%); 
-            border: 1px solid rgba(255, 255, 255, 0.45); 
+            border: 1px solid rgba(255, 255, 255, 0.5); 
             color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
         }
         .btn-glass-red:hover { color: #ffffff; opacity: 0.95; }
 
-        /* Score Badges & Pills */
-        .badge-cyan { background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%); color: #ffffff; font-weight: 800; border: 1px solid rgba(255, 255, 255, 0.5); }
-        .badge-emerald { background: linear-gradient(135deg, #34d399 0%, #059669 100%); color: #ffffff; font-weight: 800; border: 1px solid rgba(255, 255, 255, 0.5); }
-        .badge-coral { background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%); color: #ffffff; font-weight: 800; border: 1px solid rgba(255, 255, 255, 0.5); }
+        .badge-blue { 
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); 
+            border: 1px solid rgba(255, 255, 255, 0.5); 
+            color: #ffffff !important; 
+            font-weight: 800;
+        }
 
-        /* Table & Grid Glass Aesthetics */
+        /* Tables & Grid */
         .table-glass { 
             color: #0f172a !important; 
             border-collapse: separate; border-spacing: 0; 
@@ -195,7 +184,7 @@
             color: #ffffff !important; 
             border: 1px solid rgba(255, 255, 255, 0.3) !important; 
             font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-            padding: 1rem 0.75rem;
+            padding: 0.9rem 0.75rem;
         }
         .table-glass td { 
             background: rgba(255, 255, 255, 0.6) !important; 
@@ -206,9 +195,10 @@
             background-color: rgba(14, 165, 233, 0.12) !important; 
         }
 
+        /* Dropdown & Component Selection Styles */
         .comp-dropdown-btn { 
             background: rgba(255, 255, 255, 0.75); 
-            border: 1px solid rgba(255, 255, 255, 0.8); 
+            border: 1px solid rgba(255, 255, 255, 0.85); 
             color: #0f172a; padding: 0.35rem 0.65rem; border-radius: 10px; 
             text-align: left; width: 100%; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 0.875rem; font-weight: 600;
         }
@@ -281,7 +271,7 @@
         </div>
         
         <div class="sidebar-user">
-            <div class="avatar-circle" id="userAvatar">T</div>
+            <div class="avatar-circle">T</div>
             <div class="overflow-hidden">
                 <div class="small text-white opacity-75">LOGGED IN AS</div>
                 <div class="fw-bold text-white text-truncate" id="teacherNameDisplay">Loading...</div>
@@ -423,12 +413,11 @@
                                 <th>NAME</th>
                                 <th>COURSE</th>
                                 <th>SUBJECT</th>
-                                <th>BRANCH</th>
                                 <th>SCHEDTAG</th>
                             </tr>
                         </thead>
                         <tbody id="gridTableBody">
-                            <tr><td colspan="7" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>
+                            <tr><td colspan="6" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -454,14 +443,7 @@
 <script>
 Auth.requireAuth('teacher');
 const teacher = Auth.getUser();
-
-// Populate teacher info & dynamic initials avatar
-const tFirst = teacher.firstname || '';
-const tLast = teacher.lastname || '';
-document.getElementById('teacherNameDisplay').innerText = `${tFirst} ${tLast}`;
-if (tFirst || tLast) {
-    document.getElementById('userAvatar').innerText = `${tFirst.charAt(0)}${tLast.charAt(0)}`.toUpperCase();
-}
+document.getElementById('teacherNameDisplay').innerText = `${teacher.firstname || ''} ${teacher.lastname || ''}`;
 
 let rawTeacherRecords = [];
 
@@ -508,15 +490,6 @@ function switchView(viewId, element) {
     closeMobileSidebar();
 }
 
-// HELPER: Detect School Branch based on Student ID
-function getSchoolBranch(studentid) {
-    if (!studentid) return 'MAIN / OTHER BRANCH';
-    const sId = studentid.toUpperCase();
-    if (sId.includes('I')) return 'IVISAN BRANCH';
-    if (sId.includes('L')) return 'LEGANES BRANCH';
-    return 'MAIN / OTHER BRANCH';
-}
-
 // AUTOMATICALLY DYNAMIC SCHOOL YEAR INITIALIZATION
 function initSyDropdown() {
     const sySelect = document.getElementById('filterSy');
@@ -558,7 +531,7 @@ function populateFilterOptions() {
     const subjectsSet = new Set();
     const prelims = [], midterms = [], finals = [], others = [];
 
-    // 1. Parse subjects assigned in teacher profile (e.g., "CS101, CS102, IT203")
+    // 1. Parse subjects assigned in the teacher user profile (e.g., "CS101, CS102, IT203")
     if (teacher.subjecthandled) {
         teacher.subjecthandled.split(',').forEach(sub => {
             const cleaned = sub.trim().toUpperCase();
@@ -615,13 +588,7 @@ function selectComponent(val) {
     document.getElementById('compDropdownMenu').classList.remove('show');
 }
 
-// ASYNC APPLY FILTERS WITH SPINNER OVERLAY
-async function applyFilters() {
-    showLoading(true, "APPLYING FILTERS...");
-    
-    // Non-blocking tick to let DOM render the loading overlay
-    await new Promise(resolve => setTimeout(resolve, 50));
-
+function applyFilters() {
     const sy = document.getElementById('filterSy').value;
     const sem = document.getElementById('filterSem').value;
     const sub = document.getElementById('filterSubject').value;
@@ -636,7 +603,6 @@ async function applyFilters() {
     });
 
     renderRecordsGrid(filtered);
-    showLoading(false);
 }
 
 function renderRecordsGrid(records) {
@@ -655,7 +621,6 @@ function renderRecordsGrid(records) {
                 course: r.course || '',
                 subjects: r.subjects || '',
                 schedtag: r.schedtag || '',
-                branch: getSchoolBranch(r.studentid),
                 results: {}
             };
         }
@@ -667,63 +632,34 @@ function renderRecordsGrid(records) {
     
     let headerHtml = `
         <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>
-        <th>STUDENT ID</th><th>NAME</th><th>COURSE</th><th>SUBJECT</th><th>BRANCH</th>`;
+        <th>STUDENT ID</th><th>NAME</th><th>COURSE</th><th>SUBJECT</th>`;
     compList.forEach(c => { headerHtml += `<th class="text-white">${c}</th>`; });
     headerHtml += `<th>SCHEDTAG</th>`;
     theadRow.innerHTML = headerHtml;
 
-    const pivotArray = Object.values(pivoted);
-    if (pivotArray.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${7 + compList.length}" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>`;
+    const pivotKeys = Object.keys(pivoted);
+    if (pivotKeys.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${6 + compList.length}" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>`;
         return;
     }
 
-    // 1. SORT ALL RECORDS BY SCHEDTAG
-    pivotArray.sort((a, b) => (a.schedtag || '').localeCompare(b.schedtag || ''));
-
-    // 2. GROUP RECORDS BY SCHOOL BRANCH
-    const branchGroups = {};
-    pivotArray.forEach(st => {
-        if (!branchGroups[st.branch]) branchGroups[st.branch] = [];
-        branchGroups[st.branch].push(st);
-    });
-
     tbody.innerHTML = '';
-
-    // 3. RENDER GROUPED BRANCH SECTIONS
-    Object.keys(branchGroups).sort().forEach(branchName => {
-        const groupList = branchGroups[branchName];
-
-        // Branch Group Header Row
-        tbody.innerHTML += `
-            <tr style="background: rgba(14, 165, 233, 0.12);">
-                <td colspan="${7 + compList.length}" class="text-start fw-bold text-dark py-2 px-3">
-                    <i class="bi bi-geo-alt-fill text-primary me-2"></i>${branchName} (${groupList.length} STUDENT${groupList.length > 1 ? 'S' : ''})
-                </td>
-            </tr>
-        `;
-
-        groupList.forEach(st => {
-            let badgeClass = 'badge-cyan';
-            if (st.branch.includes('IVISAN')) badgeClass = 'badge-emerald';
-            if (st.branch.includes('LEGANES')) badgeClass = 'badge-coral';
-
-            let rowHtml = `
-                <tr>
-                    <td><input type="checkbox" value="${st.studentid}|${st.subjects}" class="form-check-input record-checkbox"></td>
-                    <td class="fw-bold text-dark">${st.studentid}</td>
-                    <td class="text-dark">${st.name}</td>
-                    <td class="text-dark">${st.course}</td>
-                    <td><span class="badge badge-cyan px-2 py-1">${st.subjects}</span></td>
-                    <td><span class="badge ${badgeClass} px-2 py-1">${st.branch}</span></td>`;
-            
-            compList.forEach(c => {
-                rowHtml += `<td class="fw-bold text-primary">${st.results[c] || '-'}</td>`;
-            });
-
-            rowHtml += `<td class="text-dark fw-bold">${st.schedtag}</td></tr>`;
-            tbody.innerHTML += rowHtml;
+    pivotKeys.forEach(k => {
+        const st = pivoted[k];
+        let rowHtml = `
+            <tr>
+                <td><input type="checkbox" value="${st.studentid}|${st.subjects}" class="form-check-input record-checkbox"></td>
+                <td class="fw-bold text-dark">${st.studentid}</td>
+                <td class="text-dark">${st.name}</td>
+                <td class="text-dark">${st.course}</td>
+                <td><span class="badge badge-blue px-2 py-1">${st.subjects}</span></td>`;
+        
+        compList.forEach(c => {
+            rowHtml += `<td class="fw-bold text-primary">${st.results[c] || '-'}</td>`;
         });
+
+        rowHtml += `<td class="text-dark fw-bold">${st.schedtag}</td></tr>`;
+        tbody.innerHTML += rowHtml;
     });
 }
 
@@ -760,7 +696,7 @@ async function deleteSelectedRecords() {
     loadTeacherDashboard();
 }
 
-// ACCURATE CSV UPLOAD WITH LIVE COUNTING PROGRESS INDICATOR AND UTF-8 ENCODING FIX
+// ACCURATE CSV UPLOAD WITH LIVE COUNTING PROGRESS INDICATOR
 document.getElementById('uploadCsvForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fileInput = document.getElementById('csvFileInput');
@@ -826,8 +762,7 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
         loadTeacherDashboard();
     };
 
-    // Enforce UTF-8 reading to preserve special characters like "Ñ" (TAÑEZA)
-    reader.readAsText(file, 'UTF-8');
+    reader.readAsText(file, 'UTF-8'); // Forces proper UTF-8 decoding
 });
 
 document.addEventListener("DOMContentLoaded", function() {
