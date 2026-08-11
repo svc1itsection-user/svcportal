@@ -11,7 +11,7 @@
     <style>
         :root { --sidebar-width: 280px; }
 
-        /* 1. Light Ambient Canvas with Soft Radial Glow Backgrounds */
+        /* 1. Ambient Light Canvas with Soft Radial Glow Backgrounds */
         body { 
             background-color: #f1f5f9; 
             background-image: 
@@ -25,12 +25,12 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
-        .text-glow-emerald { color: #059669 !important; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
-        .text-glow-blue { color: #0284c7 !important; text-shadow: 0 0 10px rgba(14, 165, 233, 0.3); }
+        .text-glow-emerald { color: #059669 !important; text-shadow: none; }
+        .text-glow-blue { color: #0284c7 !important; text-shadow: none; }
 
         .app-wrapper { display: flex; min-height: 100vh; }
 
-        /* Sidebar Styling */
+        /* Sidebar Glassmorphic Styling */
         .sidebar {
             width: var(--sidebar-width); 
             background: rgba(15, 23, 42, 0.85); 
@@ -56,14 +56,14 @@
         }
 
         .avatar-circle {
-            width: 44px; height: 44px; border-radius: 50%;
-            background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
+            width: 42px; height: 42px; border-radius: 50%;
+            background: linear-gradient(135deg, #38bdf8 0%, #10b981 100%);
             border: 2px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 0 12px rgba(251, 146, 60, 0.5);
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
             display: flex; align-items: center; justify-content: center;
-            font-weight: 800; color: #ffffff; font-size: 1.2rem;
+            font-weight: 800; color: #ffffff; font-size: 1.1rem;
         }
-        
+
         .sidebar-backdrop {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(6px);
@@ -86,7 +86,7 @@
         .content-panel { display: none; position: relative; z-index: 2; }
         .content-panel.active-panel { display: block; }
 
-        /* Glassmorphism Cards & Panels */
+        /* Glassmorphism Cards */
         .glass-card { 
             background: rgba(255, 255, 255, 0.65); 
             backdrop-filter: blur(18px); 
@@ -102,55 +102,28 @@
             box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
         }
 
-        .card-header-gradient {
-            background: linear-gradient(135deg, rgba(14, 165, 233, 0.95) 0%, rgba(16, 185, 129, 0.95) 85%);
-            border: 1px solid rgba(255, 255, 255, 0.45);
-            color: #ffffff !important;
-            border-radius: 18px;
-            box-shadow: 0 8px 24px rgba(14, 165, 233, 0.22);
+        .stat-card { 
+            background: rgba(255, 255, 255, 0.75); 
+            border: 1px solid rgba(255, 255, 255, 0.9); 
+            border-radius: 16px; 
+            padding: 1.25rem; 
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease; 
         }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1); }
 
-        /* Stat Cards Styling */
-        .stat-card-cyan {
-            background: linear-gradient(135deg, rgba(14, 165, 233, 0.9) 0%, rgba(2, 132, 199, 0.9) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            border-radius: 16px; padding: 1.25rem; color: #ffffff;
-            box-shadow: 0 8px 20px rgba(14, 165, 233, 0.25);
-            transition: transform 0.2s ease;
-        }
-        .stat-card-emerald {
-            background: linear-gradient(135deg, rgba(52, 211, 153, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            border-radius: 16px; padding: 1.25rem; color: #ffffff;
-            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25);
-            transition: transform 0.2s ease;
-        }
-        .stat-card-orange {
-            background: linear-gradient(135deg, rgba(251, 146, 60, 0.9) 0%, rgba(234, 88, 12, 0.9) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            border-radius: 16px; padding: 1.25rem; color: #ffffff;
-            box-shadow: 0 8px 20px rgba(234, 88, 12, 0.25);
-            transition: transform 0.2s ease;
-        }
-        .stat-card-blue {
-            background: linear-gradient(135deg, rgba(56, 189, 248, 0.9) 0%, rgba(37, 99, 235, 0.9) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            border-radius: 16px; padding: 1.25rem; color: #ffffff;
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
-            transition: transform 0.2s ease;
-        }
-        .stat-card-cyan:hover, .stat-card-emerald:hover, .stat-card-orange:hover, .stat-card-blue:hover {
-            transform: translateY(-3px);
-        }
-
-        /* Form Controls & Buttons */
+        /* Form Controls */
         .form-control, .form-select { 
             background: rgba(255, 255, 255, 0.75) !important; 
             border: 1px solid rgba(255, 255, 255, 0.85) !important; 
-            color: #0f172a !important; font-weight: 600; border-radius: 10px; text-transform: uppercase; 
+            color: #0f172a !important; 
+            font-weight: 600;
+            border-radius: 10px;
+            text-transform: uppercase; 
         }
         .form-select option { background: #ffffff; color: #0f172a; }
 
+        /* Glass Buttons */
         .btn-glass-green { 
             background: linear-gradient(135deg, #10b981 0%, #047857 100%); 
             border: 1px solid rgba(255, 255, 255, 0.5); color: #ffffff; font-weight: 700; border-radius: 10px;
@@ -167,7 +140,7 @@
             box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
         }
 
-        /* Tables & Grid */
+        /* Glass Tables */
         .table-glass { 
             color: #0f172a !important; 
             border-collapse: separate; border-spacing: 0; 
@@ -187,9 +160,7 @@
             border: 1px solid rgba(226, 232, 240, 0.8) !important; 
             color: #0f172a !important; font-weight: 600;
         }
-        .table-glass tbody tr:hover td { 
-            background-color: rgba(14, 165, 233, 0.12) !important; 
-        }
+        .table-glass tbody tr:hover td { background-color: rgba(14, 165, 233, 0.12) !important; }
 
         .spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(241, 245, 249, 0.85); backdrop-filter: blur(12px); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; }
         .modal-glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 20px; color: #0f172a; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15); }
@@ -228,7 +199,7 @@
                 <img src="../logo.png" alt="Logo" class="sidebar-brand-logo" onerror="this.style.display='none'">
                 <div>
                     <h4 class="sidebar-brand-title fw-bold m-0">SVC</h4>
-                    <div class="sidebar-brand-subtitle fw-bold">Super Admin</div>
+                    <div class="sidebar-brand-subtitle fw-bold">SUPER ADMIN PORTAL</div>
                 </div>
             </div>
         </div>
@@ -277,30 +248,30 @@
         <!-- PANEL 1: OVERVIEW ANALYTICS -->
         <div id="viewOverview" class="content-panel active-panel">
             <div class="glass-card p-4 mb-4">
-                <h4 class="fw-bold text-dark mb-4"><i class="bi bi-activity text-primary me-2"></i>SYSTEM OVERVIEW ANALYTICS</h4>
+                <h4 class="fw-bold text-dark mb-4"><i class="bi bi-activity me-2 text-primary"></i>SYSTEM OVERVIEW ANALYTICS</h4>
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <div class="stat-card-emerald">
-                            <div class="small text-white fw-bold opacity-90">TOTAL STUDENTS</div>
-                            <h2 class="fw-bold m-0 mt-1" id="statStudents">0</h2>
+                        <div class="stat-card">
+                            <div class="small text-secondary fw-bold">TOTAL STUDENTS</div>
+                            <h2 class="fw-bold text-emerald m-0" style="color: #10b981;" id="statStudents">0</h2>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="stat-card-cyan">
-                            <div class="small text-white fw-bold opacity-90">TOTAL TEACHERS</div>
-                            <h2 class="fw-bold m-0 mt-1" id="statTeachers">0</h2>
+                        <div class="stat-card">
+                            <div class="small text-secondary fw-bold">TOTAL TEACHERS</div>
+                            <h2 class="fw-bold text-primary m-0" id="statTeachers">0</h2>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="stat-card-orange">
-                            <div class="small text-white fw-bold opacity-90">TOTAL GRADE RECORDS</div>
-                            <h2 class="fw-bold m-0 mt-1" id="statRecords">0</h2>
+                        <div class="stat-card">
+                            <div class="small text-secondary fw-bold">TOTAL GRADE RECORDS</div>
+                            <h2 class="fw-bold text-warning m-0" id="statRecords">0</h2>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="stat-card-blue">
-                            <div class="small text-white fw-bold opacity-90">PORTAL ACCESS LOGS</div>
-                            <h2 class="fw-bold m-0 mt-1" id="statLogs">0</h2>
+                        <div class="stat-card">
+                            <div class="small text-secondary fw-bold">TOTAL PORTAL ACCESS LOGS</div>
+                            <h2 class="fw-bold text-info m-0" id="statLogs">0</h2>
                         </div>
                     </div>
                 </div>
@@ -309,15 +280,15 @@
 
         <!-- PANEL 2: STUDENT ACCOUNTS & CSV BATCH UPLOAD -->
         <div id="viewStudents" class="content-panel">
-            <div class="glass-card card-header-gradient p-4 mb-4">
-                <h5 class="fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>BATCH UPLOAD STUDENTS (CSV)</h5>
+            <div class="glass-card p-4 mb-4">
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-upload me-2 text-primary"></i>BATCH UPLOAD STUDENTS (CSV)</h5>
                 <form id="formStudentCsv">
                     <div class="row g-3 align-items-center">
                         <div class="col-md-8">
                             <input type="file" id="studentCsvFile" class="form-control" accept=".csv" required>
                         </div>
                         <div class="col-md-4 d-flex gap-2">
-                            <button type="submit" class="btn btn-glass-green flex-grow-1 py-2">UPLOAD CSV</button>
+                            <button type="submit" class="btn btn-glass-green flex-grow-1">UPLOAD CSV</button>
                             <a href="data:text/csv;charset=utf-8,studentid,password,lastname,firstname%0A2025-0001,student123,DELA CRUZ,JUAN" download="students_template.csv" class="btn btn-glass-blue btn-sm d-flex align-items-center px-3">TEMPLATE</a>
                         </div>
                     </div>
@@ -349,15 +320,15 @@
 
         <!-- PANEL 3: TEACHER ACCOUNTS & CSV BATCH UPLOAD -->
         <div id="viewTeachers" class="content-panel">
-            <div class="glass-card card-header-gradient p-4 mb-4">
-                <h5 class="fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>BATCH UPLOAD TEACHERS (CSV)</h5>
+            <div class="glass-card p-4 mb-4">
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-upload me-2 text-primary"></i>BATCH UPLOAD TEACHERS (CSV)</h5>
                 <form id="formTeacherCsv">
                     <div class="row g-3 align-items-center">
                         <div class="col-md-8">
                             <input type="file" id="teacherCsvFile" class="form-control" accept=".csv" required>
                         </div>
                         <div class="col-md-4 d-flex gap-2">
-                            <button type="submit" class="btn btn-glass-green flex-grow-1 py-2">UPLOAD CSV</button>
+                            <button type="submit" class="btn btn-glass-green flex-grow-1">UPLOAD CSV</button>
                             <a href="data:text/csv;charset=utf-8,teacherid,password,lastname,firstname,subjecthandled,schoolyear,semester%0AT-101,teacher123,REYES,ALAN,CS101,2025-2026,1" download="teachers_template.csv" class="btn btn-glass-blue btn-sm d-flex align-items-center px-3">TEMPLATE</a>
                         </div>
                     </div>
@@ -391,15 +362,15 @@
 
         <!-- PANEL 4: MASTER GRADE RECORDS & CSV BATCH UPLOAD -->
         <div id="viewRecords" class="content-panel">
-            <div class="glass-card card-header-gradient p-4 mb-4">
-                <h5 class="fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>BATCH UPLOAD GRADE RECORDS (CSV)</h5>
+            <div class="glass-card p-4 mb-4">
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-upload me-2 text-primary"></i>BATCH UPLOAD GRADE RECORDS (CSV)</h5>
                 <form id="formRecordCsv">
                     <div class="row g-3 align-items-center">
                         <div class="col-md-8">
                             <input type="file" id="recordCsvFile" class="form-control" accept=".csv" required>
                         </div>
                         <div class="col-md-4 d-flex gap-2">
-                            <button type="submit" class="btn btn-glass-green flex-grow-1 py-2">UPLOAD CSV</button>
+                            <button type="submit" class="btn btn-glass-green flex-grow-1">UPLOAD CSV</button>
                             <a href="data:text/csv;charset=utf-8,studentid,teacherid,lastname,firstname,course,schedtag,subjects,component,result,schoolyear,semester%0A2025-0001,T-101,DELA CRUZ,JUAN,BSIT,SEC-A,CS101,QUIZ1,85,2025-2026,1" download="sample_template.csv" class="btn btn-glass-blue btn-sm d-flex align-items-center px-3"><i class="bi bi-download me-1"></i>TEMPLATE</a>
                         </div>
                     </div>
@@ -504,7 +475,7 @@ async function loadAllData() {
 
     const [resStu, resTeach, resRec, resAck] = await Promise.all([
         _supabase.from('tblstudentuser').select('*'),
-        _supabase.from('tblTeacherUser').select('*'), // Fixed table name casing
+        _supabase.from('tblteacheruser').select('*'),
         _supabase.from('tblrecords').select('*'),
         _supabase.from('tblacknowledgments').select('*').order('acknowledged_at', { ascending: false }).limit(100)
     ]);
@@ -536,7 +507,7 @@ function renderStudentsTable(list) {
             <tr>
                 <td class="fw-bold text-dark">${s.studentid}</td>
                 <td class="text-dark">${s.lastname || ''}, ${s.firstname || ''}</td>
-                <td><code>${s.password}</code></td>
+                <td><code class="text-primary fw-bold">${s.password}</code></td>
                 <td><button onclick="deleteStudent('${s.studentid}')" class="btn btn-glass-red btn-sm px-2"><i class="bi bi-trash"></i></button></td>
             </tr>`;
     });
@@ -568,7 +539,7 @@ function renderRecordsTable(list) {
     list.slice(0, 100).forEach(r => {
         tbody.innerHTML += `
             <tr>
-                <td class="text-dark">${r.studentid}</td>
+                <td class="text-dark fw-bold">${r.studentid}</td>
                 <td class="text-dark">${r.teacherid}</td>
                 <td class="text-dark">${r.subjects}</td>
                 <td class="text-dark">${r.component}</td>
@@ -590,8 +561,8 @@ function renderAuditTable(list) {
                 <td class="text-dark">${a.ack_id || a.id}</td>
                 <td class="fw-bold text-dark">${a.studentid}</td>
                 <td class="text-dark">${a.subjects || 'N/A'}</td>
-                <td><span class="badge bg-success text-white fw-bold px-2 py-1">${a.action_type || 'LOGIN'}</span></td>
-                <td class="text-dark">${new Date(a.acknowledged_at).toLocaleString()}</td>
+                <td><span class="badge bg-success px-2 py-1">${a.action_type || 'LOGIN'}</span></td>
+                <td class="text-dark fw-bold">${new Date(a.acknowledged_at).toLocaleString()}</td>
             </tr>`;
     });
 }
@@ -620,7 +591,7 @@ async function deleteStudent(id) {
 async function deleteTeacher(id) {
     if (!confirm(`ARE YOU SURE YOU WANT TO DELETE TEACHER: ${id}?`)) return;
     showLoading(true);
-    await _supabase.from('tblTeacherUser').delete().eq('teacherid', id);
+    await _supabase.from('tblteacheruser').delete().eq('teacherid', id);
     showLoading(false);
     showAlert("TEACHER DELETED SUCCESSFULLY.");
     loadAllData();
@@ -665,7 +636,7 @@ document.getElementById('formStudentCsv').addEventListener('submit', function(e)
         document.getElementById('studentCsvFile').value = '';
         loadAllData();
     };
-    reader.readAsText(file, 'UTF-8');
+    reader.readAsText(file);
 });
 
 document.getElementById('formTeacherCsv').addEventListener('submit', function(e) {
@@ -681,7 +652,7 @@ document.getElementById('formTeacherCsv').addEventListener('submit', function(e)
         for (let i = 1; i < lines.length; i++) {
             const row = lines[i].split(',').map(s => s ? s.trim() : '');
             if (row.length >= 7 && row[0] && row[1]) {
-                await _supabase.from('tblTeacherUser').upsert([{ teacherid: row[0].toUpperCase(), password: row[1], lastname: row[2].toUpperCase(), firstname: row[3].toUpperCase(), subjecthandled: row[4].toUpperCase(), schoolyear: row[5].toUpperCase(), semester: parseInt(row[6]) || 1 }]);
+                await _supabase.from('tblteacheruser').upsert([{ teacherid: row[0].toUpperCase(), password: row[1], lastname: row[2].toUpperCase(), firstname: row[3].toUpperCase(), subjecthandled: row[4].toUpperCase(), schoolyear: row[5].toUpperCase(), semester: parseInt(row[6]) || 1 }]);
                 count++;
             }
         }
@@ -690,7 +661,7 @@ document.getElementById('formTeacherCsv').addEventListener('submit', function(e)
         document.getElementById('teacherCsvFile').value = '';
         loadAllData();
     };
-    reader.readAsText(file, 'UTF-8');
+    reader.readAsText(file);
 });
 
 document.getElementById('formRecordCsv').addEventListener('submit', function(e) {
@@ -728,7 +699,7 @@ document.getElementById('formRecordCsv').addEventListener('submit', function(e) 
         document.getElementById('recordCsvFile').value = '';
         loadAllData();
     };
-    reader.readAsText(file, 'UTF-8');
+    reader.readAsText(file);
 });
 
 document.addEventListener("DOMContentLoaded", () => {
