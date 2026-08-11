@@ -12,7 +12,7 @@
     <style>
         :root { --sidebar-width: 280px; }
 
-        /* 1. Light Ambient Slate Canvas with Radial Glows */
+        /* 1. Light Ambient Canvas with Soft Radial Glow Backgrounds */
         body { 
             background-color: #f1f5f9; 
             background-image: 
@@ -26,8 +26,8 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
-        .text-glow-emerald { color: #059669 !important; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
-        .text-glow-blue { color: #0284c7 !important; text-shadow: 0 0 10px rgba(14, 165, 233, 0.3); }
+        .text-glow-emerald { color: #059669 !important; text-shadow: none; }
+        .text-glow-blue { color: #0284c7 !important; text-shadow: none; }
         .subject-title-glow {
             color: #ffffff !important;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -35,7 +35,7 @@
 
         .app-wrapper { display: flex; min-height: 100vh; }
 
-        /* Sidebar Styling */
+        /* Sidebar Glassmorphic Styling */
         .sidebar {
             width: var(--sidebar-width); 
             background: rgba(15, 23, 42, 0.85); 
@@ -61,12 +61,12 @@
         }
 
         .avatar-circle {
-            width: 44px; height: 44px; border-radius: 50%;
+            width: 42px; height: 42px; border-radius: 50%;
             background: linear-gradient(135deg, #38bdf8 0%, #10b981 100%);
             border: 2px solid rgba(255, 255, 255, 0.8);
             box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
             display: flex; align-items: center; justify-content: center;
-            font-weight: 800; color: #ffffff; font-size: 1.2rem;
+            font-weight: 800; color: #ffffff; font-size: 1.1rem;
         }
 
         .sidebar-backdrop {
@@ -81,7 +81,9 @@
         .sidebar-accordion .accordion-button {
             background: transparent; color: rgba(255, 255, 255, 0.85); padding: 0.8rem 1.5rem; font-weight: 600; box-shadow: none; border-left: 4px solid transparent;
         }
-        .sidebar-accordion .accordion-button:not(.collapsed) { background: rgba(56, 189, 248, 0.15); color: #ffffff; border-left-color: #38bdf8; }
+        .sidebar-accordion .accordion-button:not(.collapsed) { 
+            background: rgba(56, 189, 248, 0.15); color: #ffffff; border-left-color: #38bdf8; 
+        }
         .sidebar-accordion .accordion-button::after { filter: invert(1); }
         .sidebar-sub-menu { padding-left: 1rem; background: rgba(0, 0, 0, 0.15); }
         .nav-item-link {
@@ -98,11 +100,11 @@
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; user-select: none; z-index: 0; transition: opacity 0.3s ease;
         }
         .watermark-img { width: 340px; max-width: 80vw; height: auto; opacity: 0.12; filter: drop-shadow(0 10px 20px rgba(14, 165, 233, 0.3)); }
-        
+
         .content-panel { display: none; position: relative; z-index: 2; }
         .content-panel.active-panel { display: block; }
         
-        /* Glassmorphic Cards & Controls */
+        /* Glassmorphism Card Panels */
         .glass-card { 
             background: rgba(255, 255, 255, 0.65); 
             backdrop-filter: blur(18px); 
@@ -131,13 +133,13 @@
 
         #welcomeMessage, .glass-card-subject { position: relative; z-index: 1 !important; }
 
-        /* Subject Cards Glass Styling */
+        /* Subject Cards Frosted Styling */
         .glass-card-subject { 
             backdrop-filter: blur(18px); 
             -webkit-backdrop-filter: blur(18px);
             border: 1px solid rgba(255, 255, 255, 0.8); 
             border-radius: 20px; 
-            transition: transform 0.25 ease, box-shadow 0.25s ease; 
+            transition: transform 0.25s ease, box-shadow 0.25s ease; 
             margin-bottom: 1.5rem; 
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
         }
@@ -145,7 +147,7 @@
 
         .group-panel { background: rgba(255, 255, 255, 0.55); border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 14px; padding: 12px; height: 100%; box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.5); }
         .group-panel-title { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid rgba(226, 232, 240, 0.8); padding-bottom: 6px; margin-bottom: 8px; }
-        
+
         .subgroup-header-clickable {
             font-size: 0.75rem; font-weight: 800; letter-spacing: 0.5px; color: #0284c7; background: rgba(14, 165, 233, 0.12); padding: 8px 12px; border-radius: 8px; margin-top: 6px; margin-bottom: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; border: 1px solid rgba(14, 165, 233, 0.25); transition: all 0.2s ease;
         }
@@ -155,12 +157,13 @@
         .subgroup-header-clickable.active .toggle-icon { transform: rotate(180deg); }
         .term-records-collapse { display: none; padding-left: 4px; padding-right: 4px; margin-bottom: 6px; }
 
-        /* Form Controls & Buttons */
+        /* Controls & Buttons */
         .form-control, .form-select { 
             background: rgba(255, 255, 255, 0.75) !important; 
             border: 1px solid rgba(255, 255, 255, 0.85) !important; 
             color: #0f172a !important; font-weight: 600; border-radius: 10px; text-transform: uppercase; 
         }
+
         .btn-glass-green { 
             background: linear-gradient(135deg, #10b981 0%, #047857 100%); 
             border: 1px solid rgba(255, 255, 255, 0.5); color: #ffffff; font-weight: 700; border-radius: 10px;
@@ -176,9 +179,9 @@
             border: 1px solid rgba(255, 255, 255, 0.5); color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
         }
-        
+
         .badge-blue { background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); border: 1px solid rgba(255, 255, 255, 0.5); color: #ffffff !important; font-weight: 800; }
-        
+
         .table-glass-compact { color: #0f172a; font-size: 0.82rem; margin: 0; font-weight: 600; }
         .table-glass-compact td { background: transparent; border-color: rgba(226, 232, 240, 0.8); padding: 5px 8px; color: #0f172a; }
 
@@ -186,7 +189,7 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(241, 245, 249, 0.85); backdrop-filter: blur(12px); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column;
         }
         .modal-glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 20px; color: #0f172a; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15); }
-        
+
         @media (max-width: 991.98px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.show { transform: translateX(0); }
@@ -226,7 +229,7 @@
         </div>
         
         <div class="sidebar-user">
-            <div class="avatar-circle" id="userAvatar">S</div>
+            <div class="avatar-circle">S</div>
             <div class="overflow-hidden">
                 <div class="small text-white opacity-75">LOGGED IN AS</div>
                 <div class="fw-bold text-white text-truncate" id="sidebarUserName">Loading...</div>
@@ -351,14 +354,7 @@
 <script>
 Auth.requireAuth('student');
 const student = Auth.getUser();
-
-// Populate student name & dynamic initials avatar
-const sFirst = student.firstname || '';
-const sLast = student.lastname || '';
-document.getElementById('sidebarUserName').innerText = `${sFirst} ${sLast}`;
-if (sFirst || sLast) {
-    document.getElementById('userAvatar').innerText = `${sFirst.charAt(0)}${sLast.charAt(0)}`.toUpperCase();
-}
+document.getElementById('sidebarUserName').innerText = `${student.firstname || ''} ${student.lastname || ''}`;
 
 let rawRecords = [];
 let teacherMap = {};
@@ -480,7 +476,7 @@ async function initializeDashboard() {
             .eq('studentid', student.studentid)
             .order('schoolyear', { ascending: false })
             .order('semester', { ascending: true }),
-        _supabase.from('tblTeacherUser')
+        _supabase.from('tblteacheruser')
             .select('teacherid, firstname, lastname')
     ]);
 
