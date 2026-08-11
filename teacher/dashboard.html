@@ -452,10 +452,12 @@
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h5 class="fw-bold text-dark m-0"><i class="bi bi-table me-2"></i>STUDENT RECORDS GRID</h5>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <!-- GRID SEARCH BOX -->
-                        <div class="input-group input-group-sm" style="width: 260px;">
-                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-secondary"></i></span>
-                            <input type="text" id="gridSearchBox" class="form-control form-control-sm border-start-0" placeholder="SEARCH GRID..." oninput="applyFilters()">
+                        <!-- GRID SEARCH BOX WITH FIND BUTTON -->
+                        <div class="input-group input-group-sm" style="width: 320px;">
+                            <input type="text" id="gridSearchBox" class="form-control form-control-sm" placeholder="SEARCH GRID..." onkeydown="if(event.key==='Enter') executeFindSearch()">
+                            <button class="btn btn-glass-blue btn-sm px-3" type="button" onclick="executeFindSearch()">
+                                <i class="bi bi-search me-1"></i> FIND
+                            </button>
                         </div>
                         <button onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3">
                             <i class="bi bi-trash me-1"></i> DELETE SELECTED RECORDS
@@ -669,35 +671,40 @@ function selectComponent(val) {
     applyFilters();
 }
 
-function applyFilters() {
-    showLoading(true, "PROCESSING & FILTERING GRID...");
+// EXECUTE SEARCH TRIGGERED BY FIND BUTTON OR ENTER KEY
+function executeFindSearch() {
+    showLoading(true, "SEARCHING RECORDS GRID...");
     setTimeout(() => {
-        const sy = document.getElementById('filterSy').value;
-        const sem = document.getElementById('filterSem').value;
-        const sub = document.getElementById('filterSubject').value;
-        const comp = document.getElementById('selectedComponentInput').value;
-        const query = (document.getElementById('gridSearchBox')?.value || '').trim().toUpperCase();
-
-        const filtered = rawTeacherRecords.filter(r => {
-            const matchSy = !sy || r.schoolyear === sy;
-            const matchSem = !sem || String(r.semester) === String(sem) || (sem === '1' && r.semester === 'First Semester') || (sem === '2' && r.semester === 'Second Semester') || (sem === '3' && r.semester === 'Summer');
-            const matchSub = !sub || (r.subjects && r.subjects.toUpperCase() === sub);
-            const matchComp = !comp || (r.component && r.component.toUpperCase() === comp);
-
-            const nameStr = `${r.lastname || ''} ${r.firstname || ''}`.toUpperCase();
-            const matchSearch = !query || 
-                (r.studentid && r.studentid.toUpperCase().includes(query)) ||
-                nameStr.includes(query) ||
-                (r.course && r.course.toUpperCase().includes(query)) ||
-                (r.subjects && r.subjects.toUpperCase().includes(query)) ||
-                (r.schedtag && r.schedtag.toUpperCase().includes(query));
-
-            return matchSy && matchSem && matchSub && matchComp && matchSearch;
-        });
-
-        renderRecordsGrid(filtered);
+        applyFilters();
         showLoading(false);
-    }, 100);
+    }, 150);
+}
+
+function applyFilters() {
+    const sy = document.getElementById('filterSy').value;
+    const sem = document.getElementById('filterSem').value;
+    const sub = document.getElementById('filterSubject').value;
+    const comp = document.getElementById('selectedComponentInput').value;
+    const query = (document.getElementById('gridSearchBox')?.value || '').trim().toUpperCase();
+
+    const filtered = rawTeacherRecords.filter(r => {
+        const matchSy = !sy || r.schoolyear === sy;
+        const matchSem = !sem || String(r.semester) === String(sem) || (sem === '1' && r.semester === 'First Semester') || (sem === '2' && r.semester === 'Second Semester') || (sem === '3' && r.semester === 'Summer');
+        const matchSub = !sub || (r.subjects && r.subjects.toUpperCase() === sub);
+        const matchComp = !comp || (r.component && r.component.toUpperCase() === comp);
+
+        const nameStr = `${r.lastname || ''} ${r.firstname || ''}`.toUpperCase();
+        const matchSearch = !query || 
+            (r.studentid && r.studentid.toUpperCase().includes(query)) ||
+            nameStr.includes(query) ||
+            (r.course && r.course.toUpperCase().includes(query)) ||
+            (r.subjects && r.subjects.toUpperCase().includes(query)) ||
+            (r.schedtag && r.schedtag.toUpperCase().includes(query));
+
+        return matchSy && matchSem && matchSub && matchComp && matchSearch;
+    });
+
+    renderRecordsGrid(filtered);
 }
 
 function renderRecordsGrid(records) {
@@ -854,7 +861,6 @@ function openEditRecordModal(studentId, subject) {
         document.getElementById('editSubject').value = subject;
         document.getElementById('editSchedtag').value = sample.schedtag || '';
 
-        // Dynamically build input fields for ALL components
         const compContainer = document.getElementById('editDynamicComponentsContainer');
         compContainer.innerHTML = '';
 
@@ -911,7 +917,6 @@ document.getElementById('editRecordForm').addEventListener('submit', async (e) =
     const targetRecords = rawTeacherRecords.filter(r => r.studentid === origStuId && r.subjects === origSub);
     const compInputs = document.querySelectorAll('.edit-comp-input');
 
-    // Remove old key records if primary identifier (studentid or subjects) changed
     if (origStuId !== newStuId || origSub !== newSub) {
         await _supabase.from('tblrecords')
             .delete()
@@ -920,7 +925,6 @@ document.getElementById('editRecordForm').addEventListener('submit', async (e) =
             .eq('subjects', origSub);
     }
 
-    // Save/Update all column properties including dynamic component grades
     for (let input of compInputs) {
         const compName = input.getAttribute('data-comp');
         const newResult = input.value.trim().toUpperCase();
