@@ -11,7 +11,7 @@
     <style>
         :root { --sidebar-width: 280px; }
 
-        /* 1. Ambient Light Background Canvas with Radial Glows */
+        /* Ambient Light Background Canvas with Radial Glows */
         body { 
             background-color: #f1f5f9; 
             background-image: 
@@ -62,6 +62,7 @@
             box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
             display: flex; align-items: center; justify-content: center;
             font-weight: 800; color: #ffffff; font-size: 1.1rem;
+            text-transform: uppercase;
         }
 
         .sidebar-backdrop {
@@ -100,7 +101,7 @@
         .content-panel.active-panel { display: block; }
         .embedded-iframe { width: 100%; height: calc(100vh - 4rem); border: none; border-radius: 20px; background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(18px); border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
 
-        /* 2. Glassmorphic Cards */
+        /* Glassmorphic Cards */
         .glass-card { 
             background: rgba(255, 255, 255, 0.65); 
             backdrop-filter: blur(18px); 
@@ -185,7 +186,11 @@
             border: 1px solid rgba(255, 255, 255, 0.3) !important; 
             font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
             padding: 0.9rem 0.75rem;
+            cursor: grab;
+            user-select: none;
         }
+        .table-glass th:active { cursor: grabbing; }
+        .table-glass th.dragging { opacity: 0.5; background: #0284c7 !important; }
         .table-glass td { 
             background: rgba(255, 255, 255, 0.6) !important; 
             border: 1px solid rgba(226, 232, 240, 0.8) !important; 
@@ -256,6 +261,53 @@
     </div>
 </div>
 
+<!-- Complete Column Edit Student Record Modal -->
+<div class="modal fade" id="editRecordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content modal-glass p-4 text-start">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-pencil-square me-2 text-primary"></i>EDIT STUDENT RECORD (ALL GRID COLUMNS)</h5>
+            <form id="editRecordForm">
+                <input type="hidden" id="editOriginalStudentId">
+                <input type="hidden" id="editOriginalSubject">
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-dark small fw-bold">STUDENT ID</label>
+                        <input type="text" id="editStudentId" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-dark small fw-bold">SUBJECT</label>
+                        <input type="text" id="editSubject" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label text-dark small fw-bold">NAME (LASTNAME, FIRSTNAME)</label>
+                        <input type="text" id="editStudentName" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-dark small fw-bold">COURSE</label>
+                        <input type="text" id="editCourse" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-dark small fw-bold">SCHEDTAG</label>
+                        <input type="text" id="editSchedtag" class="form-control form-control-sm" required>
+                    </div>
+                </div>
+
+                <hr class="my-3 text-secondary opacity-50">
+                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-journal-check me-1 text-success"></i>COMPONENT GRADES & RESULTS</h6>
+                <div id="editDynamicComponentsContainer" class="row g-2 mb-3" style="max-height: 220px; overflow-y: auto;">
+                    <!-- Dynamic Component Grade Inputs Rendered Here -->
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">CANCEL</button>
+                    <button type="submit" class="btn btn-glass-green btn-sm px-4"><i class="bi bi-check-circle me-1"></i>SAVE CHANGES</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
 
 <div class="app-wrapper">
@@ -271,7 +323,7 @@
         </div>
         
         <div class="sidebar-user">
-            <div class="avatar-circle">T</div>
+            <div class="avatar-circle" id="teacherAvatarInitials">--</div>
             <div class="overflow-hidden">
                 <div class="small text-white opacity-75">LOGGED IN AS</div>
                 <div class="fw-bold text-white text-truncate" id="teacherNameDisplay">Loading...</div>
@@ -322,7 +374,7 @@
         </nav>
 
         <div class="sidebar-footer">
-            <button onclick="Auth.clear()" class="btn btn-glass-red w-100 btn-sm py-2">
+            <button onclick="handleLogout()" class="btn btn-glass-red w-100 btn-sm py-2">
                 <i class="bi bi-box-arrow-right me-1"></i> LOGOUT
             </button>
         </div>
@@ -362,11 +414,11 @@
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label text-white small fw-bold">SCHOOL YEAR</label>
-                        <select id="filterSy" class="form-select form-select-sm"></select>
+                        <select id="filterSy" class="form-select form-select-sm" onchange="applyFilters()"></select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label text-white small fw-bold">SEMESTER</label>
-                        <select id="filterSem" class="form-select form-select-sm">
+                        <select id="filterSem" class="form-select form-select-sm" onchange="applyFilters()">
                             <option value="1">First Semester</option>
                             <option value="2">Second Semester</option>
                             <option value="3">Summer</option>
@@ -374,7 +426,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label text-white small fw-bold">SUBJECT</label>
-                        <select id="filterSubject" class="form-select form-select-sm">
+                        <select id="filterSubject" class="form-select form-select-sm" onchange="applyFilters()">
                             <option value="">ALL SUBJECTS</option>
                         </select>
                     </div>
@@ -397,11 +449,18 @@
             </div>
 
             <div class="glass-card p-4 grid-card-wrapper">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h5 class="fw-bold text-dark m-0"><i class="bi bi-table me-2"></i>STUDENT RECORDS GRID</h5>
-                    <button onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3">
-                        <i class="bi bi-trash me-1"></i> DELETE SELECTED RECORDS
-                    </button>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <!-- GRID SEARCH BOX -->
+                        <div class="input-group input-group-sm" style="width: 260px;">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-secondary"></i></span>
+                            <input type="text" id="gridSearchBox" class="form-control form-control-sm border-start-0" placeholder="SEARCH GRID..." oninput="applyFilters()">
+                        </div>
+                        <button onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3">
+                            <i class="bi bi-trash me-1"></i> DELETE SELECTED RECORDS
+                        </button>
+                    </div>
                 </div>
 
                 <div class="table-responsive">
@@ -414,10 +473,11 @@
                                 <th>COURSE</th>
                                 <th>SUBJECT</th>
                                 <th>SCHEDTAG</th>
+                                <th>ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody id="gridTableBody">
-                            <tr><td colspan="6" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>
+                            <tr><td colspan="7" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -443,9 +503,22 @@
 <script>
 Auth.requireAuth('teacher');
 const teacher = Auth.getUser();
-document.getElementById('teacherNameDisplay').innerText = `${teacher.firstname || ''} ${teacher.lastname || ''}`;
+
+// SETUP INITIALS FOR AVATAR LOGO
+function setupTeacherAvatar() {
+    const fn = (teacher.firstname || '').trim();
+    const ln = (teacher.lastname || '').trim();
+    document.getElementById('teacherNameDisplay').innerText = `${fn} ${ln}`;
+
+    const fInit = fn ? fn.charAt(0) : '';
+    const lInit = ln ? ln.charAt(0) : '';
+    const initials = (fInit + lInit).toUpperCase() || 'T';
+    document.getElementById('teacherAvatarInitials').innerText = initials;
+}
 
 let rawTeacherRecords = [];
+let currentFilteredRecords = [];
+let columnOrder = [];
 
 function showAlert(msg) {
     document.getElementById('alertModalBody').innerText = msg;
@@ -455,6 +528,13 @@ function showAlert(msg) {
 function showLoading(show, message = "PROCESSING OPERATION...") {
     document.getElementById('loadingText').innerText = message;
     document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+}
+
+function handleLogout() {
+    showLoading(true, "LOGGING OUT...");
+    setTimeout(() => {
+        Auth.clear();
+    }, 300);
 }
 
 function autoCapitalizeInputs() {
@@ -483,11 +563,15 @@ function clearMainView() {
 }
 
 function switchView(viewId, element) {
-    clearMainView();
-    document.getElementById(viewId)?.classList.add('active-panel');
-    element?.classList.add('active');
-    document.getElementById('watermarkContainer').style.display = 'none';
-    closeMobileSidebar();
+    showLoading(true, "LOADING PANEL...");
+    setTimeout(() => {
+        clearMainView();
+        document.getElementById(viewId)?.classList.add('active-panel');
+        element?.classList.add('active');
+        document.getElementById('watermarkContainer').style.display = 'none';
+        closeMobileSidebar();
+        showLoading(false);
+    }, 150);
 }
 
 // AUTOMATICALLY DYNAMIC SCHOOL YEAR INITIALIZATION
@@ -495,11 +579,9 @@ function initSyDropdown() {
     const sySelect = document.getElementById('filterSy');
     sySelect.innerHTML = '';
     
-    // Get current calendar year dynamically
     const currentYear = new Date().getFullYear();
     const currentSy = `${currentYear}-${currentYear + 1}`;
 
-    // Populate dropdown options from 2025 up to 2049
     for (let y = 2025; y <= 2049; y++) {
         const val = `${y}-${y + 1}`;
         const isSelected = (val === currentSy) ? 'selected' : '';
@@ -509,6 +591,7 @@ function initSyDropdown() {
 
 async function loadTeacherDashboard() {
     showLoading(true, "LOADING TEACHER RECORDS...");
+    setupTeacherAvatar();
     initSyDropdown();
 
     const { data, error } = await _supabase
@@ -531,7 +614,6 @@ function populateFilterOptions() {
     const subjectsSet = new Set();
     const prelims = [], midterms = [], finals = [], others = [];
 
-    // 1. Parse subjects assigned in the teacher user profile (e.g., "CS101, CS102, IT203")
     if (teacher.subjecthandled) {
         teacher.subjecthandled.split(',').forEach(sub => {
             const cleaned = sub.trim().toUpperCase();
@@ -539,7 +621,6 @@ function populateFilterOptions() {
         });
     }
 
-    // 2. Parse subjects from uploaded student records in tblrecords
     rawTeacherRecords.forEach(r => {
         if (r.subjects) subjectsSet.add(r.subjects.toUpperCase());
         const comp = r.component ? r.component.toUpperCase() : '';
@@ -549,7 +630,6 @@ function populateFilterOptions() {
         else if (comp && !others.includes(comp)) others.push(comp);
     });
 
-    // 3. Populate dropdown with all unique sorted subjects
     Array.from(subjectsSet).sort().forEach(s => {
         subjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
     });
@@ -586,26 +666,42 @@ function selectComponent(val) {
     document.getElementById('selectedComponentInput').value = val;
     document.getElementById('selectedComponentText').innerText = val !== '' ? val : 'ALL COMPONENTS';
     document.getElementById('compDropdownMenu').classList.remove('show');
+    applyFilters();
 }
 
 function applyFilters() {
-    const sy = document.getElementById('filterSy').value;
-    const sem = document.getElementById('filterSem').value;
-    const sub = document.getElementById('filterSubject').value;
-    const comp = document.getElementById('selectedComponentInput').value;
+    showLoading(true, "PROCESSING & FILTERING GRID...");
+    setTimeout(() => {
+        const sy = document.getElementById('filterSy').value;
+        const sem = document.getElementById('filterSem').value;
+        const sub = document.getElementById('filterSubject').value;
+        const comp = document.getElementById('selectedComponentInput').value;
+        const query = (document.getElementById('gridSearchBox')?.value || '').trim().toUpperCase();
 
-    const filtered = rawTeacherRecords.filter(r => {
-        const matchSy = !sy || r.schoolyear === sy;
-        const matchSem = !sem || String(r.semester) === String(sem) || (sem === '1' && r.semester === 'First Semester') || (sem === '2' && r.semester === 'Second Semester') || (sem === '3' && r.semester === 'Summer');
-        const matchSub = !sub || (r.subjects && r.subjects.toUpperCase() === sub);
-        const matchComp = !comp || (r.component && r.component.toUpperCase() === comp);
-        return matchSy && matchSem && matchSub && matchComp;
-    });
+        const filtered = rawTeacherRecords.filter(r => {
+            const matchSy = !sy || r.schoolyear === sy;
+            const matchSem = !sem || String(r.semester) === String(sem) || (sem === '1' && r.semester === 'First Semester') || (sem === '2' && r.semester === 'Second Semester') || (sem === '3' && r.semester === 'Summer');
+            const matchSub = !sub || (r.subjects && r.subjects.toUpperCase() === sub);
+            const matchComp = !comp || (r.component && r.component.toUpperCase() === comp);
 
-    renderRecordsGrid(filtered);
+            const nameStr = `${r.lastname || ''} ${r.firstname || ''}`.toUpperCase();
+            const matchSearch = !query || 
+                (r.studentid && r.studentid.toUpperCase().includes(query)) ||
+                nameStr.includes(query) ||
+                (r.course && r.course.toUpperCase().includes(query)) ||
+                (r.subjects && r.subjects.toUpperCase().includes(query)) ||
+                (r.schedtag && r.schedtag.toUpperCase().includes(query));
+
+            return matchSy && matchSem && matchSub && matchComp && matchSearch;
+        });
+
+        renderRecordsGrid(filtered);
+        showLoading(false);
+    }, 100);
 }
 
 function renderRecordsGrid(records) {
+    currentFilteredRecords = records;
     const tbody = document.getElementById('gridTableBody');
     const theadRow = document.getElementById('gridHeaderRow');
     
@@ -617,6 +713,8 @@ function renderRecordsGrid(records) {
         if (!pivoted[key]) {
             pivoted[key] = {
                 studentid: r.studentid,
+                lastname: r.lastname || '',
+                firstname: r.firstname || '',
                 name: `${r.lastname || ''}, ${r.firstname || ''}`,
                 course: r.course || '',
                 subjects: r.subjects || '',
@@ -629,38 +727,247 @@ function renderRecordsGrid(records) {
     });
 
     const compList = Array.from(dynamicComps);
-    
-    let headerHtml = `
-        <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>
-        <th>STUDENT ID</th><th>NAME</th><th>COURSE</th><th>SUBJECT</th>`;
-    compList.forEach(c => { headerHtml += `<th class="text-white">${c}</th>`; });
-    headerHtml += `<th>SCHEDTAG</th>`;
+
+    // Default column structure
+    if (columnOrder.length === 0 || columnOrder.length !== (5 + compList.length)) {
+        columnOrder = [
+            { id: 'col_studentid', key: 'studentid', label: 'STUDENT ID' },
+            { id: 'col_name', key: 'name', label: 'NAME' },
+            { id: 'col_course', key: 'course', label: 'COURSE' },
+            { id: 'col_subjects', key: 'subjects', label: 'SUBJECT' },
+            ...compList.map((c, i) => ({ id: `col_comp_${i}`, key: `comp_${c}`, compName: c, label: c, isComp: true })),
+            { id: 'col_schedtag', key: 'schedtag', label: 'SCHEDTAG' }
+        ];
+    }
+
+    // MULTI-COLUMN SORT: Schedtag -> Name -> Course -> Subject (A-Z)
+    const pivotKeys = Object.keys(pivoted).sort((a, b) => {
+        const itemA = pivoted[a];
+        const itemB = pivoted[b];
+
+        const schedCompare = (itemA.schedtag || '').localeCompare(itemB.schedtag || '');
+        if (schedCompare !== 0) return schedCompare;
+
+        const nameCompare = (itemA.name || '').localeCompare(itemB.name || '');
+        if (nameCompare !== 0) return nameCompare;
+
+        const courseCompare = (itemA.course || '').localeCompare(itemB.course || '');
+        if (courseCompare !== 0) return courseCompare;
+
+        return (itemA.subjects || '').localeCompare(itemB.subjects || '');
+    });
+
+    renderHeaderAndRows(pivotKeys, pivoted, compList);
+}
+
+function renderHeaderAndRows(pivotKeys, pivoted, compList) {
+    const tbody = document.getElementById('gridTableBody');
+    const theadRow = document.getElementById('gridHeaderRow');
+
+    // Build Header
+    let headerHtml = `<th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>`;
+    columnOrder.forEach((col, idx) => {
+        const textClass = col.isComp ? 'text-white' : '';
+        headerHtml += `<th draggable="true" data-col-index="${idx}" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragend="handleDragEnd(event)" class="${textClass}"><i class="bi bi-grip-vertical me-1 opacity-50"></i>${col.label}</th>`;
+    });
+    headerHtml += `<th>ACTIONS</th>`;
     theadRow.innerHTML = headerHtml;
 
-    const pivotKeys = Object.keys(pivoted);
     if (pivotKeys.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${6 + compList.length}" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${2 + columnOrder.length}" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>`;
         return;
     }
 
+    // Build Rows
     tbody.innerHTML = '';
     pivotKeys.forEach(k => {
         const st = pivoted[k];
-        let rowHtml = `
-            <tr>
-                <td><input type="checkbox" value="${st.studentid}|${st.subjects}" class="form-check-input record-checkbox"></td>
-                <td class="fw-bold text-dark">${st.studentid}</td>
-                <td class="text-dark">${st.name}</td>
-                <td class="text-dark">${st.course}</td>
-                <td><span class="badge badge-blue px-2 py-1">${st.subjects}</span></td>`;
-        
-        compList.forEach(c => {
-            rowHtml += `<td class="fw-bold text-primary">${st.results[c] || '-'}</td>`;
+        let rowHtml = `<tr><td><input type="checkbox" value="${st.studentid}|${st.subjects}" class="form-check-input record-checkbox"></td>`;
+
+        columnOrder.forEach(col => {
+            if (col.key === 'studentid') rowHtml += `<td class="fw-bold text-dark">${st.studentid}</td>`;
+            else if (col.key === 'name') rowHtml += `<td class="text-dark">${st.name}</td>`;
+            else if (col.key === 'course') rowHtml += `<td class="text-dark">${st.course}</td>`;
+            else if (col.key === 'subjects') rowHtml += `<td><span class="badge badge-blue px-2 py-1">${st.subjects}</span></td>`;
+            else if (col.key === 'schedtag') rowHtml += `<td class="text-dark fw-bold">${st.schedtag}</td>`;
+            else if (col.isComp) rowHtml += `<td class="fw-bold text-primary">${st.results[col.compName] || '-'}</td>`;
         });
 
-        rowHtml += `<td class="text-dark fw-bold">${st.schedtag}</td></tr>`;
+        rowHtml += `
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary py-0 px-2" onclick="openEditRecordModal('${st.studentid}', '${st.subjects}')" title="Edit Row All Columns"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-outline-danger py-0 px-2" onclick="deleteSingleRow('${st.studentid}', '${st.subjects}')" title="Delete Row"><i class="bi bi-trash"></i></button>
+                </div>
+            </td>
+        </tr>`;
         tbody.innerHTML += rowHtml;
     });
+}
+
+// DRAG AND DROP COLUMN REORDERING
+let dragSrcIndex = null;
+
+function handleDragStart(e) {
+    dragSrcIndex = Number(e.currentTarget.getAttribute('data-col-index'));
+    e.currentTarget.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) e.stopPropagation();
+    const targetIndex = Number(e.currentTarget.getAttribute('data-col-index'));
+    if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
+        const movedCol = columnOrder.splice(dragSrcIndex, 1)[0];
+        columnOrder.splice(targetIndex, 0, movedCol);
+        applyFilters();
+    }
+    return false;
+}
+
+function handleDragEnd(e) {
+    e.currentTarget.classList.remove('dragging');
+}
+
+// INLINE EDITING INCLUDING ALL GRID COLUMNS
+function openEditRecordModal(studentId, subject) {
+    showLoading(true, "LOADING RECORD DATA...");
+    setTimeout(() => {
+        const targetRecords = rawTeacherRecords.filter(r => r.studentid === studentId && r.subjects === subject);
+        if (targetRecords.length === 0) {
+            showLoading(false);
+            return;
+        }
+
+        const sample = targetRecords[0];
+        document.getElementById('editOriginalStudentId').value = studentId;
+        document.getElementById('editOriginalSubject').value = subject;
+        document.getElementById('editStudentId').value = studentId;
+        document.getElementById('editStudentName').value = `${sample.lastname || ''}, ${sample.firstname || ''}`;
+        document.getElementById('editCourse').value = sample.course || '';
+        document.getElementById('editSubject').value = subject;
+        document.getElementById('editSchedtag').value = sample.schedtag || '';
+
+        // Dynamically build input fields for ALL components
+        const compContainer = document.getElementById('editDynamicComponentsContainer');
+        compContainer.innerHTML = '';
+
+        const compMap = {};
+        targetRecords.forEach(r => {
+            if (r.component) {
+                compMap[r.component.toUpperCase()] = r.result || '';
+            }
+        });
+
+        const compKeys = Object.keys(compMap);
+        if (compKeys.length === 0) {
+            compContainer.innerHTML = `<div class="col-12 text-muted small">NO COMPONENT GRADES RECORDED FOR THIS SUBJECT.</div>`;
+        } else {
+            compKeys.forEach(comp => {
+                compContainer.innerHTML += `
+                    <div class="col-md-6">
+                        <label class="form-label text-dark small fw-bold mb-1">${comp}</label>
+                        <input type="text" class="form-control form-control-sm edit-comp-input" data-comp="${comp}" value="${compMap[comp]}" placeholder="GRADE / RESULT">
+                    </div>
+                `;
+            });
+        }
+
+        showLoading(false);
+        new bootstrap.Modal(document.getElementById('editRecordModal')).show();
+    }, 100);
+}
+
+document.getElementById('editRecordForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const origStuId = document.getElementById('editOriginalStudentId').value;
+    const origSub = document.getElementById('editOriginalSubject').value;
+
+    const newStuId = document.getElementById('editStudentId').value.trim().toUpperCase();
+    const newSub = document.getElementById('editSubject').value.trim().toUpperCase();
+    const nameStr = document.getElementById('editStudentName').value.trim();
+    const newCourse = document.getElementById('editCourse').value.trim().toUpperCase();
+    const newSchedtag = document.getElementById('editSchedtag').value.trim().toUpperCase();
+
+    let newLast = '', newFirst = '';
+    if (nameStr.includes(',')) {
+        const parts = nameStr.split(',');
+        newLast = parts[0].trim().toUpperCase();
+        newFirst = parts[1].trim().toUpperCase();
+    } else {
+        const parts = nameStr.split(' ');
+        newLast = parts[parts.length - 1].trim().toUpperCase();
+        newFirst = parts.slice(0, -1).join(' ').trim().toUpperCase();
+    }
+
+    showLoading(true, "SAVING CHANGES TO ALL COLUMNS...");
+
+    const targetRecords = rawTeacherRecords.filter(r => r.studentid === origStuId && r.subjects === origSub);
+    const compInputs = document.querySelectorAll('.edit-comp-input');
+
+    // Remove old key records if primary identifier (studentid or subjects) changed
+    if (origStuId !== newStuId || origSub !== newSub) {
+        await _supabase.from('tblrecords')
+            .delete()
+            .eq('teacherid', teacher.teacherid)
+            .eq('studentid', origStuId)
+            .eq('subjects', origSub);
+    }
+
+    // Save/Update all column properties including dynamic component grades
+    for (let input of compInputs) {
+        const compName = input.getAttribute('data-comp');
+        const newResult = input.value.trim().toUpperCase();
+        const existingCompRec = targetRecords.find(r => (r.component || '').toUpperCase() === compName);
+
+        const payload = {
+            studentid: newStuId,
+            teacherid: teacher.teacherid,
+            lastname: newLast,
+            firstname: newFirst,
+            course: newCourse,
+            schedtag: newSchedtag,
+            subjects: newSub,
+            component: compName,
+            result: newResult,
+            schoolyear: existingCompRec ? existingCompRec.schoolyear : (targetRecords[0]?.schoolyear || '2025-2026'),
+            semester: existingCompRec ? existingCompRec.semester : (targetRecords[0]?.semester || '1')
+        };
+
+        await _supabase.from('tblrecords').upsert([payload]);
+    }
+
+    showLoading(false);
+    bootstrap.Modal.getInstance(document.getElementById('editRecordModal'))?.hide();
+    showAlert("RECORD AND ALL COLUMN VALUES UPDATED SUCCESSFULLY!");
+    loadTeacherDashboard();
+});
+
+async function deleteSingleRow(stuId, sub) {
+    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE RECORD FOR STUDENT: ${stuId} (${sub})?`)) return;
+
+    showLoading(true, "DELETING RECORD...");
+    const { error } = await _supabase.from('tblrecords')
+        .delete()
+        .eq('teacherid', teacher.teacherid)
+        .eq('studentid', stuId)
+        .eq('subjects', sub);
+
+    showLoading(false);
+
+    if (error) {
+        showAlert("FAILED TO DELETE RECORD.");
+        return;
+    }
+
+    showAlert("RECORD DELETED SUCCESSFULLY.");
+    loadTeacherDashboard();
 }
 
 function toggleSelectAll(master) {
@@ -674,7 +981,7 @@ async function deleteSelectedRecords() {
         return;
     }
 
-    showLoading(true, "DELETING RECORDS...");
+    showLoading(true, "DELETING SELECTED RECORDS...");
     let deletedCount = 0;
 
     for (let cb of checked) {
@@ -709,7 +1016,6 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
     reader.onload = async function(e) {
         const lines = e.target.result.split('\n');
         
-        // 1. Filter out empty lines and header row to get total valid data rows accurately
         const validRows = [];
         for (let i = 1; i < lines.length; i++) {
             const row = lines[i].split(',').map(item => item ? item.trim() : '');
@@ -727,12 +1033,10 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
 
         let inserted = 0;
 
-        // 2. Loop through valid rows and display live progress counter (e.g. 25 OF 2500)
         for (let idx = 0; idx < totalRecords; idx++) {
             const row = validRows[idx];
             const currentNum = idx + 1;
 
-            // Live UI progress text update
             showLoading(true, `PROCESSING CSV RECORDS... (${currentNum} OF ${totalRecords})`);
 
             const payload = {
@@ -752,7 +1056,6 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
             const { error } = await _supabase.from('tblrecords').upsert([payload]);
             if (!error) inserted++;
 
-            // Brief non-blocking delay allowing the DOM to render the counter text smoothly
             await new Promise(resolve => setTimeout(resolve, 0));
         }
 
@@ -762,7 +1065,7 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
         loadTeacherDashboard();
     };
 
-    reader.readAsText(file, 'UTF-8'); // Forces proper UTF-8 decoding
+    reader.readAsText(file, 'UTF-8');
 });
 
 document.addEventListener("DOMContentLoaded", function() {
