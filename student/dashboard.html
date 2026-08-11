@@ -67,6 +67,7 @@
             box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
             display: flex; align-items: center; justify-content: center;
             font-weight: 800; color: #ffffff; font-size: 1.1rem;
+            text-transform: uppercase;
         }
 
         .sidebar-backdrop {
@@ -229,7 +230,7 @@
         </div>
         
         <div class="sidebar-user">
-            <div class="avatar-circle">S</div>
+            <div class="avatar-circle" id="studentAvatarInitials">--</div>
             <div class="overflow-hidden">
                 <div class="small text-white opacity-75">LOGGED IN AS</div>
                 <div class="fw-bold text-white text-truncate" id="sidebarUserName">Loading...</div>
@@ -354,7 +355,18 @@
 <script>
 Auth.requireAuth('student');
 const student = Auth.getUser();
-document.getElementById('sidebarUserName').innerText = `${student.firstname || ''} ${student.lastname || ''}`;
+
+// SETUP INITIALS FOR AVATAR LOGO
+function setupStudentAvatar() {
+    const fn = (student.firstname || '').trim();
+    const ln = (student.lastname || '').trim();
+    document.getElementById('sidebarUserName').innerText = `${fn} ${ln}`;
+
+    const fInit = fn ? fn.charAt(0) : '';
+    const lInit = ln ? ln.charAt(0) : '';
+    const initials = (fInit + lInit).toUpperCase() || 'S';
+    document.getElementById('studentAvatarInitials').innerText = initials;
+}
 
 let rawRecords = [];
 let teacherMap = {};
@@ -469,6 +481,7 @@ function togglePass(inputId, btn) {
 
 async function initializeDashboard() {
     showLoading(true, "LOADING STUDENT DASHBOARD...");
+    setupStudentAvatar();
     
     const [recordsRes, teachersRes] = await Promise.all([
         _supabase.from('tblrecords')
@@ -551,8 +564,13 @@ function buildCards(recordsToDisplay) {
         grouped[key].records.push(r);
     });
 
+    // SORT CARDS ALPHABETICALLY (A-Z) BY SUBJECT NAME
+    const sortedGroups = Object.values(grouped).sort((a, b) => 
+        (a.subject || '').localeCompare(b.subject || '')
+    );
+
     let cardIndex = 0;
-    Object.values(grouped).forEach(group => {
+    sortedGroups.forEach(group => {
         const theme = cardThemes[cardIndex % cardThemes.length];
         const cardId = `card_${cardIndex}`;
         const chartId = `chart_${cardIndex}`;
@@ -625,17 +643,27 @@ function buildCards(recordsToDisplay) {
 
 function buildColumn(title, dataGroup, icon, colorClass, cardId) {
     let content = '';
-    const keys = Object.keys(dataGroup);
+    
+    // SORT PERIOD KEYS ALPHABETICALLY (A-Z) (e.g., FINALS, MIDTERM, PRELIM)
+    const keys = Object.keys(dataGroup).sort();
+
     if (keys.length === 0) content = `<div class="text-secondary fw-semibold text-center fs-7 py-3">NO DATA</div>`;
     else {
         keys.forEach(period => {
             let rows = '';
-            dataGroup[period].forEach(r => {
+            
+            // SORT INDIVIDUAL ITEMS ALPHABETICALLY (A-Z) BY COMPONENT NAME
+            const sortedItems = [...dataGroup[period]].sort((a, b) => 
+                (a.component || '').localeCompare(b.component || '')
+            );
+
+            sortedItems.forEach(r => {
                 rows += `<tr><td class="text-dark fw-bold">${r.component}</td><td class="text-end">${getGradeBadgeHTML(r.result)}</td></tr>`;
             });
+
             content += `
             <div class="subgroup-header-clickable" data-period="${period}" data-card-id="${cardId}" onclick="toggleTermRecords(this)">
-                <span>${period} <small class="opacity-90">(${dataGroup[period].length})</small></span><i class="bi bi-chevron-down toggle-icon"></i>
+                <span>${period} <small class="opacity-90">(${sortedItems.length})</small></span><i class="bi bi-chevron-down toggle-icon"></i>
             </div>
             <div class="term-records-collapse"><table class="table table-glass-compact"><tbody>${rows}</tbody></table></div>`;
         });
