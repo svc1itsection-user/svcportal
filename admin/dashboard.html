@@ -7,11 +7,12 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="../js/supabase-config.js"></script>
     <style>
         :root { --sidebar-width: 280px; }
 
-        /* 1. Ambient Light Canvas with Soft Radial Glow Backgrounds */
+        /* Ambient Light Canvas with Soft Radial Glow Backgrounds */
         body { 
             background-color: #f1f5f9; 
             background-image: 
@@ -129,18 +130,26 @@
             border: 1px solid rgba(255, 255, 255, 0.5); color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
         }
+        .btn-glass-green:hover:not(:disabled) { color: #ffffff; opacity: 0.95; }
+        .btn-glass-green:disabled { background: #94a3b8 !important; border-color: #cbd5e1 !important; box-shadow: none !important; opacity: 0.6; cursor: not-allowed; }
+
         .btn-glass-blue { 
             background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); 
             border: 1px solid rgba(255, 255, 255, 0.5); color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
         }
+        .btn-glass-blue:hover:not(:disabled) { color: #ffffff; opacity: 0.95; }
+
         .btn-glass-red { 
             background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%); 
             border: 1px solid rgba(255, 255, 255, 0.5); color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+            transition: all 0.2s ease;
         }
+        .btn-glass-red:hover:not(:disabled) { color: #ffffff; opacity: 0.95; }
+        .btn-glass-red:disabled { background: #94a3b8 !important; border-color: #cbd5e1 !important; box-shadow: none !important; opacity: 0.6; cursor: not-allowed; }
 
-        /* Glass Tables */
+        /* Glass Tables with Draggable Headers */
         .table-glass { 
             color: #0f172a !important; 
             border-collapse: separate; border-spacing: 0; 
@@ -154,7 +163,11 @@
             border: 1px solid rgba(255, 255, 255, 0.3) !important; 
             font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
             padding: 0.9rem 0.75rem;
+            cursor: grab;
+            user-select: none;
         }
+        .table-glass th:active { cursor: grabbing; }
+        .table-glass th.dragging { opacity: 0.4; }
         .table-glass td { 
             background: rgba(255, 255, 255, 0.6) !important; 
             border: 1px solid rgba(226, 232, 240, 0.8) !important; 
@@ -185,6 +198,144 @@
         <div class="modal-content modal-glass p-3 text-center">
             <div class="modal-body fs-5 fw-bold text-dark" id="alertModalBody"></div>
             <div class="mt-3"><button type="button" class="btn btn-glass-blue px-4" data-bs-dismiss="modal">OK</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Student User Modal -->
+<div class="modal fade" id="editStudentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-glass p-4 text-start">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-pencil-square me-2 text-primary"></i>EDIT STUDENT USER</h5>
+            <form id="editStudentForm">
+                <input type="hidden" id="editOriginalStudentId">
+                <div class="mb-2">
+                    <label class="form-label text-dark small fw-bold">STUDENT ID</label>
+                    <input type="text" id="editStudentId" class="form-control form-control-sm bg-light" readonly required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-dark small fw-bold">LASTNAME</label>
+                    <input type="text" id="editStudentLastName" class="form-control form-control-sm" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-dark small fw-bold">FIRSTNAME</label>
+                    <input type="text" id="editStudentFirstName" class="form-control form-control-sm" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-dark small fw-bold">PASSWORD</label>
+                    <input type="text" id="editStudentPassword" class="form-control form-control-sm" required>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">CANCEL</button>
+                    <button type="submit" class="btn btn-glass-green btn-sm px-4">SAVE CHANGES</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Teacher User Modal -->
+<div class="modal fade" id="editTeacherModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-glass p-4 text-start">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-pencil-square me-2 text-primary"></i>EDIT TEACHER USER</h5>
+            <form id="editTeacherForm">
+                <input type="hidden" id="editOriginalTeacherId">
+                <div class="mb-2">
+                    <label class="form-label text-dark small fw-bold">TEACHER ID</label>
+                    <input type="text" id="editTeacherId" class="form-control form-control-sm bg-light" readonly required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-dark small fw-bold">LASTNAME</label>
+                    <input type="text" id="editTeacherLastName" class="form-control form-control-sm" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-dark small fw-bold">FIRSTNAME</label>
+                    <input type="text" id="editTeacherFirstName" class="form-control form-control-sm" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-dark small fw-bold">SUBJECT HANDLED</label>
+                    <input type="text" id="editTeacherSubject" class="form-control form-control-sm" required>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold">SCHOOL YEAR</label>
+                        <input type="text" id="editTeacherSy" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold">SEMESTER</label>
+                        <select id="editTeacherSem" class="form-select form-select-sm" required>
+                            <option value="1">1 (First Semester)</option>
+                            <option value="2">2 (Second Semester)</option>
+                            <option value="3">3 (Summer)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-dark small fw-bold">PASSWORD</label>
+                    <input type="text" id="editTeacherPassword" class="form-control form-control-sm" required>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">CANCEL</button>
+                    <button type="submit" class="btn btn-glass-green btn-sm px-4">SAVE CHANGES</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Grade Record Modal -->
+<div class="modal fade" id="editRecordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-glass p-4 text-start">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-pencil-square me-2 text-primary"></i>EDIT GRADE RECORD</h5>
+            <form id="editRecordForm">
+                <input type="hidden" id="editRecordStudentId">
+                <input type="hidden" id="editRecordOriginalSubject">
+                <input type="hidden" id="editRecordOriginalComponent">
+                
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold">STUDENT ID</label>
+                        <input type="text" id="editRecordDisplayStudentId" class="form-control form-control-sm bg-light" readonly required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold">TEACHER ID</label>
+                        <input type="text" id="editRecordTeacherId" class="form-control form-control-sm" required>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-dark small fw-bold">LASTNAME & FIRSTNAME</label>
+                    <div class="row g-2">
+                        <div class="col-6"><input type="text" id="editRecordLastName" class="form-control form-control-sm" placeholder="LASTNAME" required></div>
+                        <div class="col-6"><input type="text" id="editRecordFirstName" class="form-control form-control-sm" placeholder="FIRSTNAME" required></div>
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold">SUBJECT</label>
+                        <input type="text" id="editRecordSubject" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold">COMPONENT</label>
+                        <input type="text" id="editRecordComponent" class="form-control form-control-sm" required>
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold">RESULT / GRADE</label>
+                        <input type="text" id="editRecordResult" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-dark small fw-bold">SCHEDTAG</label>
+                        <input type="text" id="editRecordSchedtag" class="form-control form-control-sm" required>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">CANCEL</button>
+                    <button type="submit" class="btn btn-glass-green btn-sm px-4">SAVE CHANGES</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -225,9 +376,6 @@
             <a class="nav-item-link" onclick="switchView('viewRecords', this)">
                 <i class="bi bi-journal-text"></i><span>Master Grade Records</span>
             </a>
-            <a class="nav-item-link" onclick="switchView('viewAuditLogs', this)">
-                <i class="bi bi-clock-history"></i><span>Audit & Access Logs</span>
-            </a>
         </nav>
 
         <div class="sidebar-footer">
@@ -249,61 +397,79 @@
         <div id="viewOverview" class="content-panel active-panel">
             <div class="glass-card p-4 mb-4">
                 <h4 class="fw-bold text-dark mb-4"><i class="bi bi-activity me-2 text-primary"></i>SYSTEM OVERVIEW ANALYTICS</h4>
-                <div class="row g-3">
-                    <div class="col-md-3">
+                
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
                         <div class="stat-card">
-                            <div class="small text-secondary fw-bold">TOTAL STUDENTS</div>
-                            <h2 class="fw-bold text-emerald m-0" style="color: #10b981;" id="statStudents">0</h2>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <div class="small text-secondary fw-bold">TOTAL TEACHERS</div>
+                            <div class="small text-secondary fw-bold">TOTAL DISTINCT TEACHERS</div>
                             <h2 class="fw-bold text-primary m-0" id="statTeachers">0</h2>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-6">
                         <div class="stat-card">
-                            <div class="small text-secondary fw-bold">TOTAL GRADE RECORDS</div>
-                            <h2 class="fw-bold text-warning m-0" id="statRecords">0</h2>
+                            <div class="small text-secondary fw-bold">TOTAL DISTINCT SUBJECTS</div>
+                            <h2 class="fw-bold text-warning m-0" id="statSubjects">0</h2>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <div class="small text-secondary fw-bold">TOTAL PORTAL ACCESS LOGS</div>
-                            <h2 class="fw-bold text-info m-0" id="statLogs">0</h2>
-                        </div>
+                </div>
+
+                <!-- DISTINCT STUDENT COUNT PER SUBJECT (CURRENT SCHOOL YEAR PER SEMESTER) -->
+                <div class="glass-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold text-dark m-0">
+                            <i class="bi bi-book me-2 text-success"></i>TOTAL DISTINCT STUDENT COUNT PER SUBJECT FOR CURRENT SCHOOL YEAR (<span id="currentSyDisplay">--</span>)
+                        </h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-glass text-center align-middle">
+                            <thead>
+                                <tr>
+                                    <th>SUBJECT NAME</th>
+                                    <th>SEMESTER</th>
+                                    <th>DISTINCT STUDENTS COUNT</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableOverviewSubjectBody">
+                                <tr><td colspan="3" class="text-secondary p-4">Loading overview metrics...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- PANEL 2: STUDENT ACCOUNTS & CSV BATCH UPLOAD -->
+        <!-- PANEL 2: STUDENT ACCOUNTS & BATCH UPLOAD -->
         <div id="viewStudents" class="content-panel">
             <div class="glass-card p-4 mb-4">
-                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-upload me-2 text-primary"></i>BATCH UPLOAD STUDENTS (CSV)</h5>
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-upload me-2 text-primary"></i>BATCH UPLOAD STUDENTS (.XLSX)</h5>
                 <form id="formStudentCsv">
                     <div class="row g-3 align-items-center">
-                        <div class="col-md-8">
-                            <input type="file" id="studentCsvFile" class="form-control" accept=".csv" required>
+                        <div class="col-md-7">
+                            <input type="file" id="studentCsvFile" class="form-control" accept=".xlsx, .xls, .csv" required>
                         </div>
-                        <div class="col-md-4 d-flex gap-2">
-                            <button type="submit" class="btn btn-glass-green flex-grow-1">UPLOAD CSV</button>
-                            <a href="data:text/csv;charset=utf-8,studentid,password,lastname,firstname%0A2025-0001,student123,DELA CRUZ,JUAN" download="students_template.csv" class="btn btn-glass-blue btn-sm d-flex align-items-center px-3">TEMPLATE</a>
+                        <div class="col-md-5 d-flex gap-2">
+                            <button type="submit" class="btn btn-glass-green flex-grow-1">Upload & Update</button>
+                            <button type="button" onclick="downloadStudentTemplate()" class="btn btn-glass-blue btn-sm px-3">DOWNLOAD TEMPLATE (.XLSX)</button>
                         </div>
                     </div>
                 </form>
             </div>
 
             <div class="glass-card p-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h5 class="text-dark fw-bold m-0"><i class="bi bi-people me-2"></i>STUDENT USER ACCOUNTS</h5>
-                    <input type="text" id="searchStudentBox" class="form-control form-control-sm w-auto" placeholder="SEARCH STUDENT..." oninput="filterStudentTable()" style="text-transform: uppercase;">
+                    
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" id="searchStudentBox" class="form-control form-control-sm" placeholder="SEARCH STUDENT..." style="text-transform: uppercase; width: 220px;" onkeydown="if(event.key==='Enter') executeStudentSearch()">
+                        <button onclick="executeStudentSearch()" class="btn btn-glass-blue btn-sm px-3">VIEW</button>
+                        <button id="deleteSelectedStudentsBtn" onclick="deleteSelectedStudents()" class="btn btn-glass-red btn-sm px-3" disabled>DELETE SELECTED RECORDS</button>
+                    </div>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-glass text-center align-middle">
+                    <table class="table table-glass text-center align-middle" id="tableStudentsGrid">
                         <thead>
                             <tr>
+                                <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllStudentsCheckbox" onclick="toggleSelectAllStudents(this)"></th>
                                 <th>STUDENT ID</th>
                                 <th>FULL NAME</th>
                                 <th>PASSWORD</th>
@@ -311,39 +477,45 @@
                             </tr>
                         </thead>
                         <tbody id="tableStudentsBody">
-                            <tr><td colspan="4" class="text-secondary p-4">Loading student database...</td></tr>
+                            <tr><td colspan="5" class="text-secondary p-4">Use search box above or click VIEW to display student records.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- PANEL 3: TEACHER ACCOUNTS & CSV BATCH UPLOAD -->
+        <!-- PANEL 3: TEACHER ACCOUNTS & BATCH UPLOAD -->
         <div id="viewTeachers" class="content-panel">
             <div class="glass-card p-4 mb-4">
-                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-upload me-2 text-primary"></i>BATCH UPLOAD TEACHERS (CSV)</h5>
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-upload me-2 text-primary"></i>BATCH UPLOAD TEACHERS (.XLSX)</h5>
                 <form id="formTeacherCsv">
                     <div class="row g-3 align-items-center">
-                        <div class="col-md-8">
-                            <input type="file" id="teacherCsvFile" class="form-control" accept=".csv" required>
+                        <div class="col-md-7">
+                            <input type="file" id="teacherCsvFile" class="form-control" accept=".xlsx, .xls, .csv" required>
                         </div>
-                        <div class="col-md-4 d-flex gap-2">
-                            <button type="submit" class="btn btn-glass-green flex-grow-1">UPLOAD CSV</button>
-                            <a href="data:text/csv;charset=utf-8,teacherid,password,lastname,firstname,subjecthandled,schoolyear,semester%0AT-101,teacher123,REYES,ALAN,CS101,2025-2026,1" download="teachers_template.csv" class="btn btn-glass-blue btn-sm d-flex align-items-center px-3">TEMPLATE</a>
+                        <div class="col-md-5 d-flex gap-2">
+                            <button type="submit" class="btn btn-glass-green flex-grow-1">Upload & Update</button>
+                            <button type="button" onclick="downloadTeacherTemplate()" class="btn btn-glass-blue btn-sm px-3">DOWNLOAD TEMPLATE (.XLSX)</button>
                         </div>
                     </div>
                 </form>
             </div>
 
             <div class="glass-card p-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h5 class="text-dark fw-bold m-0"><i class="bi bi-person-badge me-2"></i>TEACHER USER ACCOUNTS</h5>
-                    <input type="text" id="searchTeacherBox" class="form-control form-control-sm w-auto" placeholder="SEARCH TEACHER..." oninput="filterTeacherTable()" style="text-transform: uppercase;">
+                    
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" id="searchTeacherBox" class="form-control form-control-sm" placeholder="SEARCH TEACHER..." style="text-transform: uppercase; width: 220px;" onkeydown="if(event.key==='Enter') executeTeacherSearch()">
+                        <button onclick="executeTeacherSearch()" class="btn btn-glass-blue btn-sm px-3">VIEW</button>
+                        <button id="deleteSelectedTeachersBtn" onclick="deleteSelectedTeachers()" class="btn btn-glass-red btn-sm px-3" disabled>DELETE SELECTED RECORDS</button>
+                    </div>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-glass text-center align-middle">
+                    <table class="table table-glass text-center align-middle" id="tableTeachersGrid">
                         <thead>
                             <tr>
+                                <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllTeachersCheckbox" onclick="toggleSelectAllTeachers(this)"></th>
                                 <th>TEACHER ID</th>
                                 <th>NAME</th>
                                 <th>SUBJECT HANDLED</th>
@@ -353,40 +525,47 @@
                             </tr>
                         </thead>
                         <tbody id="tableTeachersBody">
-                            <tr><td colspan="6" class="text-secondary p-4">Loading teacher database...</td></tr>
+                            <tr><td colspan="7" class="text-secondary p-4">Use search box above or click VIEW to display teacher records.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- PANEL 4: MASTER GRADE RECORDS & CSV BATCH UPLOAD -->
+        <!-- PANEL 4: MASTER GRADE RECORDS & BATCH UPLOAD -->
         <div id="viewRecords" class="content-panel">
             <div class="glass-card p-4 mb-4">
-                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-upload me-2 text-primary"></i>BATCH UPLOAD GRADE RECORDS (CSV)</h5>
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-cloud-upload me-2 text-primary"></i>BATCH UPLOAD GRADE RECORDS (.XLSX)</h5>
                 <form id="formRecordCsv">
                     <div class="row g-3 align-items-center">
-                        <div class="col-md-8">
-                            <input type="file" id="recordCsvFile" class="form-control" accept=".csv" required>
+                        <div class="col-md-7">
+                            <input type="file" id="recordCsvFile" class="form-control" accept=".xlsx, .xls, .csv" required>
                         </div>
-                        <div class="col-md-4 d-flex gap-2">
-                            <button type="submit" class="btn btn-glass-green flex-grow-1">UPLOAD CSV</button>
-                            <a href="data:text/csv;charset=utf-8,studentid,teacherid,lastname,firstname,course,schedtag,subjects,component,result,schoolyear,semester%0A2025-0001,T-101,DELA CRUZ,JUAN,BSIT,SEC-A,CS101,QUIZ1,85,2025-2026,1" download="sample_template.csv" class="btn btn-glass-blue btn-sm d-flex align-items-center px-3"><i class="bi bi-download me-1"></i>TEMPLATE</a>
+                        <div class="col-md-5 d-flex gap-2">
+                            <button type="submit" class="btn btn-glass-green flex-grow-1">Upload & Update</button>
+                            <button type="button" onclick="downloadRecordTemplate()" class="btn btn-glass-blue btn-sm px-3">DOWNLOAD TEMPLATE (.XLSX)</button>
                         </div>
                     </div>
                 </form>
             </div>
 
             <div class="glass-card p-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h5 class="text-dark fw-bold m-0"><i class="bi bi-journal-text me-2"></i>ALL SYSTEM GRADE RECORDS</h5>
-                    <button onclick="clearAllRecords()" class="btn btn-glass-red btn-sm px-3"><i class="bi bi-trash me-1"></i> PURGE ALL RECORDS</button>
+                    
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" id="searchRecordBox" class="form-control form-control-sm" placeholder="SEARCH RECORDS..." style="text-transform: uppercase; width: 220px;" onkeydown="if(event.key==='Enter') executeRecordSearch()">
+                        <button onclick="executeRecordSearch()" class="btn btn-glass-blue btn-sm px-3">VIEW</button>
+                        <button id="deleteSelectedRecordsBtn" onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3" disabled>DELETE SELECTED RECORDS</button>
+                    </div>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-glass text-center align-middle">
+                    <table class="table table-glass text-center align-middle" id="tableRecordsGrid">
                         <thead>
                             <tr>
+                                <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllRecordsCheckbox" onclick="toggleSelectAllRecords(this)"></th>
                                 <th>STUDENT ID</th>
+                                <th>FULL NAME</th>
                                 <th>TEACHER ID</th>
                                 <th>SUBJECT</th>
                                 <th>COMPONENT</th>
@@ -396,30 +575,7 @@
                             </tr>
                         </thead>
                         <tbody id="tableRecordsBody">
-                            <tr><td colspan="7" class="text-secondary p-4">Loading grade records database...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- PANEL 5: AUDIT LOGS -->
-        <div id="viewAuditLogs" class="content-panel">
-            <div class="glass-card p-4">
-                <h5 class="text-dark fw-bold mb-3"><i class="bi bi-clock-history me-2"></i>STUDENT ACCESS AUDIT TRAIL</h5>
-                <div class="table-responsive">
-                    <table class="table table-glass text-center align-middle">
-                        <thead>
-                            <tr>
-                                <th>ACK ID</th>
-                                <th>STUDENT ID</th>
-                                <th>SUBJECT</th>
-                                <th>ACTION TYPE</th>
-                                <th>TIMESTAMP</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableAuditBody">
-                            <tr><td colspan="5" class="text-secondary p-4">Loading access logs...</td></tr>
+                            <tr><td colspan="9" class="text-secondary p-4">Use search box above or click VIEW to display grade records.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -431,9 +587,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 Auth.requireAuth('admin');
-
-let cacheStudents = [];
-let cacheTeachers = [];
 
 function showAlert(msg) {
     document.getElementById('alertModalBody').innerText = msg;
@@ -470,241 +623,788 @@ function switchView(viewId, element) {
     closeMobileSidebar();
 }
 
-async function loadAllData() {
-    showLoading(true, "FETCHING SYSTEM DATA...");
+// ----------------------------------------------------
+// INTERCHANGEABLE GRID COLUMNS (DRAG & DROP)
+// ----------------------------------------------------
+function enableInterchangeableColumns() {
+    document.querySelectorAll('table.table-glass').forEach(table => {
+        const headers = table.querySelectorAll('th');
+        headers.forEach((th, index) => {
+            th.draggable = true;
+            th.setAttribute('data-col-index', index);
 
-    const [resStu, resTeach, resRec, resAck] = await Promise.all([
-        _supabase.from('tblstudentuser').select('*'),
+            th.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', index);
+                th.classList.add('dragging');
+            });
+
+            th.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            th.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                const toIndex = index;
+                if (!isNaN(fromIndex) && fromIndex !== toIndex) {
+                    swapTableColumns(table, fromIndex, toIndex);
+                }
+                th.classList.remove('dragging');
+            });
+
+            th.addEventListener('dragend', () => {
+                th.classList.remove('dragging');
+            });
+        });
+    });
+}
+
+function swapTableColumns(table, fromIdx, toIdx) {
+    const rows = table.querySelectorAll('tr');
+    rows.forEach(row => {
+        const cells = Array.from(row.children);
+        if (cells[fromIdx] && cells[toIdx]) {
+            if (fromIdx < toIdx) {
+                row.insertBefore(cells[fromIdx], cells[toIdx].nextSibling);
+            } else {
+                row.insertBefore(cells[fromIdx], cells[toIdx]);
+            }
+        }
+    });
+}
+
+// ----------------------------------------------------
+// OVERVIEW ANALYTICS COMPUTATIONS
+// ----------------------------------------------------
+async function loadOverviewAnalytics() {
+    showLoading(true, "LOADING ANALYTICS...");
+
+    const currentYear = new Date().getFullYear();
+    const currentSy = `${currentYear}-${currentYear + 1}`;
+    document.getElementById('currentSyDisplay').innerText = currentSy;
+
+    const [resTeachers, resRecords] = await Promise.all([
         _supabase.from('tblteacheruser').select('*'),
-        _supabase.from('tblrecords').select('*'),
-        _supabase.from('tblacknowledgments').select('*').order('acknowledged_at', { ascending: false }).limit(100)
+        _supabase.from('tblrecords').select('*')
     ]);
 
     showLoading(false);
 
-    cacheStudents = resStu.data || [];
-    cacheTeachers = resTeach.data || [];
+    const teachersList = resTeachers.data || [];
+    const recordsList = resRecords.data || [];
 
-    // Dashboard Stats
-    document.getElementById('statStudents').innerText = cacheStudents.length;
-    document.getElementById('statTeachers').innerText = cacheTeachers.length;
-    document.getElementById('statRecords').innerText = (resRec.data || []).length;
-    document.getElementById('statLogs').innerText = (resAck.data || []).length;
+    // 1. Total Distinct Teachers
+    const distinctTeachers = new Set(teachersList.map(t => t.teacherid.toUpperCase())).size;
+    document.getElementById('statTeachers').innerText = distinctTeachers;
 
-    renderStudentsTable(cacheStudents);
-    renderTeachersTable(cacheTeachers);
-    renderRecordsTable(resRec.data || []);
-    renderAuditTable(resAck.data || []);
+    // 2. Total Distinct Subject Name Count
+    const subjectsSet = new Set();
+    recordsList.forEach(r => { if (r.subjects) subjectsSet.add(r.subjects.toUpperCase()); });
+    teachersList.forEach(t => { if (t.subjecthandled) subjectsSet.add(t.subjecthandled.toUpperCase()); });
+    document.getElementById('statSubjects').innerText = subjectsSet.size;
+
+    // 3. Distinct student count per subject for current school year per semester
+    const currentSyRecords = recordsList.filter(r => {
+        return r.schoolyear && (r.schoolyear.includes(String(currentYear)) || r.schoolyear === currentSy);
+    });
+
+    const breakdownMap = {};
+
+    currentSyRecords.forEach(r => {
+        const sub = (r.subjects || 'UNSPECIFIED').toUpperCase();
+        let semRaw = String(r.semester || '1').toUpperCase();
+        let semName = 'First Semester (1)';
+
+        if (semRaw.includes('2') || semRaw.includes('SECOND')) semName = 'Second Semester (2)';
+        else if (semRaw.includes('3') || semRaw.includes('SUMMER')) semName = 'Summer (3)';
+
+        const key = `${sub}|||${semName}`;
+        if (!breakdownMap[key]) breakdownMap[key] = new Set();
+        if (r.studentid) breakdownMap[key].add(r.studentid.toUpperCase());
+    });
+
+    const tbody = document.getElementById('tableOverviewSubjectBody');
+    tbody.innerHTML = '';
+
+    const keys = Object.keys(breakdownMap).sort();
+    if (keys.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="text-secondary p-4">NO STUDENT RECORDS FOUND FOR CURRENT SCHOOL YEAR (${currentSy}).</td></tr>`;
+        return;
+    }
+
+    keys.forEach(k => {
+        const [sub, sem] = k.split('|||');
+        const count = breakdownMap[k].size;
+        tbody.innerHTML += `
+            <tr>
+                <td class="fw-bold text-dark">${sub}</td>
+                <td class="text-primary fw-bold">${sem}</td>
+                <td class="fw-bold text-success fs-6">${count}</td>
+            </tr>`;
+    });
+}
+
+// ----------------------------------------------------
+// STUDENT ACCOUNTS MANAGEMENT (DIRECT SUPABASE SEARCH)
+// ----------------------------------------------------
+async function executeStudentSearch() {
+    const query = (document.getElementById('searchStudentBox').value || '').trim();
+    showLoading(true, "SEARCHING STUDENT ACCOUNTS...");
+
+    let dbQuery = _supabase.from('tblstudentuser').select('*');
+    if (query) {
+        dbQuery = dbQuery.or(`studentid.ilike.%${query}%,lastname.ilike.%${query}%,firstname.ilike.%${query}%`);
+    }
+
+    const { data, error } = await dbQuery.order('lastname', { ascending: true }).order('firstname', { ascending: true });
+    showLoading(false);
+
+    if (error) {
+        showAlert("ERROR SEARCHING STUDENTS: " + error.message);
+        return;
+    }
+
+    renderStudentsTable(data || []);
 }
 
 function renderStudentsTable(list) {
     const tbody = document.getElementById('tableStudentsBody');
     tbody.innerHTML = '';
-    if (list.length === 0) { tbody.innerHTML = `<tr><td colspan="4" class="text-secondary p-4">NO STUDENTS RECORDED.</td></tr>`; return; }
+    document.getElementById('selectAllStudentsCheckbox').checked = false;
+
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-secondary p-4">NO STUDENT ACCOUNTS MATCHED YOUR QUERY.</td></tr>`;
+        updateStudentDeleteBtnState();
+        return;
+    }
 
     list.forEach(s => {
         tbody.innerHTML += `
             <tr>
+                <td><input type="checkbox" value="${s.studentid}" class="form-check-input student-checkbox" onchange="updateStudentDeleteBtnState()"></td>
                 <td class="fw-bold text-dark">${s.studentid}</td>
-                <td class="text-dark">${s.lastname || ''}, ${s.firstname || ''}</td>
-                <td><code class="text-primary fw-bold">${s.password}</code></td>
-                <td><button onclick="deleteStudent('${s.studentid}')" class="btn btn-glass-red btn-sm px-2"><i class="bi bi-trash"></i></button></td>
+                <td class="text-dark fw-bold">${s.lastname || ''}, ${s.firstname || ''}</td>
+                <td><code class="text-primary fw-bold">${s.password || ''}</code></td>
+                <td>
+                    <button onclick="openEditStudentModal('${s.studentid}', '${s.lastname || ''}', '${s.firstname || ''}', '${s.password || ''}')" class="btn btn-outline-primary btn-sm py-0 px-2 me-1" title="Edit"><i class="bi bi-pencil"></i></button>
+                    <button onclick="deleteSingleStudent('${s.studentid}')" class="btn btn-outline-danger btn-sm py-0 px-2" title="Delete"><i class="bi bi-trash"></i></button>
+                </td>
             </tr>`;
     });
+
+    updateStudentDeleteBtnState();
+}
+
+function updateStudentDeleteBtnState() {
+    const checked = document.querySelectorAll('.student-checkbox:checked').length;
+    document.getElementById('deleteSelectedStudentsBtn').disabled = (checked === 0);
+}
+
+function toggleSelectAllStudents(master) {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = master.checked);
+    updateStudentDeleteBtnState();
+}
+
+async function deleteSingleStudent(id) {
+    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE STUDENT ACCOUNT FOR ID: ${id}?`)) return;
+    showLoading(true, "DELETING STUDENT ACCOUNT...");
+    await _supabase.from('tblstudentuser').delete().eq('studentid', id);
+    showLoading(false);
+    showAlert("STUDENT ACCOUNT DELETED SUCCESSFULLY.");
+    executeStudentSearch();
+}
+
+async function deleteSelectedStudents() {
+    const checked = document.querySelectorAll('.student-checkbox:checked');
+    if (checked.length === 0) return;
+    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE ALL ${checked.length} SELECTED STUDENT ACCOUNT(S)?`)) return;
+
+    showLoading(true, "DELETING SELECTED STUDENTS...");
+    let count = 0;
+    for (let cb of checked) {
+        const { error } = await _supabase.from('tblstudentuser').delete().eq('studentid', cb.value);
+        if (!error) count++;
+    }
+    showLoading(false);
+    showAlert(`DELETED ${count} STUDENT ACCOUNT(S) SUCCESSFULLY.`);
+    executeStudentSearch();
+}
+
+function openEditStudentModal(id, last, first, pass) {
+    document.getElementById('editOriginalStudentId').value = id;
+    document.getElementById('editStudentId').value = id;
+    document.getElementById('editStudentLastName').value = last;
+    document.getElementById('editStudentFirstName').value = first;
+    document.getElementById('editStudentPassword').value = pass;
+    new bootstrap.Modal(document.getElementById('editStudentModal')).show();
+}
+
+document.getElementById('editStudentForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const origId = document.getElementById('editOriginalStudentId').value;
+    const last = document.getElementById('editStudentLastName').value.trim().toUpperCase();
+    const first = document.getElementById('editStudentFirstName').value.trim().toUpperCase();
+    const pass = document.getElementById('editStudentPassword').value.trim();
+
+    showLoading(true, "SAVING STUDENT CHANGES...");
+    const { error } = await _supabase.from('tblstudentuser').update({
+        lastname: last,
+        firstname: first,
+        password: pass
+    }).eq('studentid', origId);
+
+    showLoading(false);
+    bootstrap.Modal.getInstance(document.getElementById('editStudentModal'))?.hide();
+
+    if (error) showAlert("FAILED TO SAVE CHANGES: " + error.message);
+    else {
+        showAlert("STUDENT USER UPDATED SUCCESSFULLY.");
+        executeStudentSearch();
+    }
+});
+
+// ----------------------------------------------------
+// TEACHER ACCOUNTS MANAGEMENT (DIRECT SUPABASE SEARCH)
+// ----------------------------------------------------
+async function executeTeacherSearch() {
+    const query = (document.getElementById('searchTeacherBox').value || '').trim();
+    showLoading(true, "SEARCHING TEACHER ACCOUNTS...");
+
+    let dbQuery = _supabase.from('tblteacheruser').select('*');
+    if (query) {
+        dbQuery = dbQuery.or(`teacherid.ilike.%${query}%,lastname.ilike.%${query}%,firstname.ilike.%${query}%,subjecthandled.ilike.%${query}%`);
+    }
+
+    const { data, error } = await dbQuery.order('lastname', { ascending: true }).order('firstname', { ascending: true });
+    showLoading(false);
+
+    if (error) {
+        showAlert("ERROR SEARCHING TEACHERS: " + error.message);
+        return;
+    }
+
+    renderTeachersTable(data || []);
 }
 
 function renderTeachersTable(list) {
     const tbody = document.getElementById('tableTeachersBody');
     tbody.innerHTML = '';
-    if (list.length === 0) { tbody.innerHTML = `<tr><td colspan="6" class="text-secondary p-4">NO TEACHERS RECORDED.</td></tr>`; return; }
+    document.getElementById('selectAllTeachersCheckbox').checked = false;
+
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-secondary p-4">NO TEACHER ACCOUNTS MATCHED YOUR QUERY.</td></tr>`;
+        updateTeacherDeleteBtnState();
+        return;
+    }
 
     list.forEach(t => {
         tbody.innerHTML += `
             <tr>
+                <td><input type="checkbox" value="${t.teacherid}" class="form-check-input teacher-checkbox" onchange="updateTeacherDeleteBtnState()"></td>
                 <td class="fw-bold text-dark">${t.teacherid}</td>
-                <td class="text-dark">${t.lastname || ''}, ${t.firstname || ''}</td>
-                <td class="text-dark">${t.subjecthandled || '-'}</td>
+                <td class="text-dark fw-bold">${t.lastname || ''}, ${t.firstname || ''}</td>
+                <td class="text-dark fw-bold">${t.subjecthandled || '-'}</td>
                 <td class="text-dark">${t.schoolyear || '-'}</td>
                 <td class="text-dark">${t.semester || '-'}</td>
-                <td><button onclick="deleteTeacher('${t.teacherid}')" class="btn btn-glass-red btn-sm px-2"><i class="bi bi-trash"></i></button></td>
+                <td>
+                    <button onclick="openEditTeacherModal('${t.teacherid}', '${t.lastname || ''}', '${t.firstname || ''}', '${t.subjecthandled || ''}', '${t.schoolyear || ''}', '${t.semester || '1'}', '${t.password || ''}')" class="btn btn-outline-primary btn-sm py-0 px-2 me-1" title="Edit"><i class="bi bi-pencil"></i></button>
+                    <button onclick="deleteSingleTeacher('${t.teacherid}')" class="btn btn-outline-danger btn-sm py-0 px-2" title="Delete"><i class="bi bi-trash"></i></button>
+                </td>
             </tr>`;
     });
+
+    updateTeacherDeleteBtnState();
+}
+
+function updateTeacherDeleteBtnState() {
+    const checked = document.querySelectorAll('.teacher-checkbox:checked').length;
+    document.getElementById('deleteSelectedTeachersBtn').disabled = (checked === 0);
+}
+
+function toggleSelectAllTeachers(master) {
+    document.querySelectorAll('.teacher-checkbox').forEach(cb => cb.checked = master.checked);
+    updateTeacherDeleteBtnState();
+}
+
+async function deleteSingleTeacher(id) {
+    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE TEACHER ACCOUNT FOR ID: ${id}?`)) return;
+    showLoading(true, "DELETING TEACHER ACCOUNT...");
+    await _supabase.from('tblteacheruser').delete().eq('teacherid', id);
+    showLoading(false);
+    showAlert("TEACHER ACCOUNT DELETED SUCCESSFULLY.");
+    executeTeacherSearch();
+}
+
+async function deleteSelectedTeachers() {
+    const checked = document.querySelectorAll('.teacher-checkbox:checked');
+    if (checked.length === 0) return;
+    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE ALL ${checked.length} SELECTED TEACHER ACCOUNT(S)?`)) return;
+
+    showLoading(true, "DELETING SELECTED TEACHERS...");
+    let count = 0;
+    for (let cb of checked) {
+        const { error } = await _supabase.from('tblteacheruser').delete().eq('teacherid', cb.value);
+        if (!error) count++;
+    }
+    showLoading(false);
+    showAlert(`DELETED ${count} TEACHER ACCOUNT(S) SUCCESSFULLY.`);
+    executeTeacherSearch();
+}
+
+function openEditTeacherModal(id, last, first, sub, sy, sem, pass) {
+    document.getElementById('editOriginalTeacherId').value = id;
+    document.getElementById('editTeacherId').value = id;
+    document.getElementById('editTeacherLastName').value = last;
+    document.getElementById('editTeacherFirstName').value = first;
+    document.getElementById('editTeacherSubject').value = sub;
+    document.getElementById('editTeacherSy').value = sy;
+    document.getElementById('editTeacherSem').value = sem;
+    document.getElementById('editTeacherPassword').value = pass;
+    new bootstrap.Modal(document.getElementById('editTeacherModal')).show();
+}
+
+document.getElementById('editTeacherForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const origId = document.getElementById('editOriginalTeacherId').value;
+    const last = document.getElementById('editTeacherLastName').value.trim().toUpperCase();
+    const first = document.getElementById('editTeacherFirstName').value.trim().toUpperCase();
+    const sub = document.getElementById('editTeacherSubject').value.trim().toUpperCase();
+    const sy = document.getElementById('editTeacherSy').value.trim().toUpperCase();
+    const sem = parseInt(document.getElementById('editTeacherSem').value) || 1;
+    const pass = document.getElementById('editTeacherPassword').value.trim();
+
+    showLoading(true, "SAVING TEACHER CHANGES...");
+    const { error } = await _supabase.from('tblteacheruser').update({
+        lastname: last,
+        firstname: first,
+        subjecthandled: sub,
+        schoolyear: sy,
+        semester: sem,
+        password: pass
+    }).eq('teacherid', origId);
+
+    showLoading(false);
+    bootstrap.Modal.getInstance(document.getElementById('editTeacherModal'))?.hide();
+
+    if (error) showAlert("FAILED TO SAVE CHANGES: " + error.message);
+    else {
+        showAlert("TEACHER USER UPDATED SUCCESSFULLY.");
+        executeTeacherSearch();
+    }
+});
+
+// ----------------------------------------------------
+// MASTER GRADE RECORDS MANAGEMENT (ORDERED BY LASTNAME, FIRSTNAME, SCHEDTAG, SUBJECTS, COMPONENT)
+// ----------------------------------------------------
+async function executeRecordSearch() {
+    const query = (document.getElementById('searchRecordBox').value || '').trim();
+    showLoading(true, "SEARCHING GRADE RECORDS...");
+
+    let dbQuery = _supabase.from('tblrecords').select('*');
+    if (query) {
+        dbQuery = dbQuery.or(`studentid.ilike.%${query}%,teacherid.ilike.%${query}%,lastname.ilike.%${query}%,firstname.ilike.%${query}%,subjects.ilike.%${query}%,schedtag.ilike.%${query}%,component.ilike.%${query}%`);
+    }
+
+    // STRICT MULTI-LEVEL SORTING ORDER: LASTNAME -> FIRSTNAME -> SCHEDTAG -> SUBJECTS -> COMPONENT
+    dbQuery = dbQuery
+        .order('lastname', { ascending: true })
+        .order('firstname', { ascending: true })
+        .order('schedtag', { ascending: true })
+        .order('subjects', { ascending: true })
+        .order('component', { ascending: true });
+
+    const { data, error } = await dbQuery.limit(500);
+    showLoading(false);
+
+    if (error) {
+        showAlert("ERROR SEARCHING RECORDS: " + error.message);
+        return;
+    }
+
+    let records = data || [];
+
+    // Additional client-side sort guarantee for UTF-8 and exact ordering
+    records.sort((a, b) => {
+        const cLast = (a.lastname || '').localeCompare(b.lastname || '', 'en', { sensitivity: 'base' });
+        if (cLast !== 0) return cLast;
+        const cFirst = (a.firstname || '').localeCompare(b.firstname || '', 'en', { sensitivity: 'base' });
+        if (cFirst !== 0) return cFirst;
+        const cSched = (a.schedtag || '').localeCompare(b.schedtag || '', 'en', { sensitivity: 'base' });
+        if (cSched !== 0) return cSched;
+        const cSub = (a.subjects || '').localeCompare(b.subjects || '', 'en', { sensitivity: 'base' });
+        if (cSub !== 0) return cSub;
+        return (a.component || '').localeCompare(b.component || '', 'en', { sensitivity: 'base' });
+    });
+
+    renderRecordsTable(records);
 }
 
 function renderRecordsTable(list) {
     const tbody = document.getElementById('tableRecordsBody');
     tbody.innerHTML = '';
-    if (list.length === 0) { tbody.innerHTML = `<tr><td colspan="7" class="text-secondary p-4">NO RECORDS FOUND.</td></tr>`; return; }
+    document.getElementById('selectAllRecordsCheckbox').checked = false;
 
-    list.slice(0, 100).forEach(r => {
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-secondary p-4">NO GRADE RECORDS MATCHED YOUR QUERY.</td></tr>`;
+        updateRecordDeleteBtnState();
+        return;
+    }
+
+    list.forEach(r => {
+        const valKey = `${r.studentid}|${r.subjects}|${r.component}`;
         tbody.innerHTML += `
             <tr>
+                <td><input type="checkbox" value="${valKey}" class="form-check-input record-checkbox" onchange="updateRecordDeleteBtnState()"></td>
                 <td class="text-dark fw-bold">${r.studentid}</td>
+                <td class="text-dark fw-bold">${r.lastname || ''}, ${r.firstname || ''}</td>
                 <td class="text-dark">${r.teacherid}</td>
-                <td class="text-dark">${r.subjects}</td>
-                <td class="text-dark">${r.component}</td>
-                <td class="fw-bold text-primary">${r.result}</td>
+                <td class="text-dark fw-bold">${r.subjects}</td>
+                <td class="text-primary fw-bold">${r.component}</td>
+                <td class="fw-bold text-success">${r.result}</td>
                 <td class="text-dark">${r.schoolyear} | SEM ${r.semester}</td>
-                <td><button onclick="deleteRecord('${r.record_id || r.id}')" class="btn btn-glass-red btn-sm px-2"><i class="bi bi-trash"></i></button></td>
+                <td>
+                    <button onclick="openEditRecordModal('${r.studentid}', '${r.teacherid}', '${r.lastname || ''}', '${r.firstname || ''}', '${r.subjects}', '${r.component}', '${r.result}', '${r.schedtag || ''}')" class="btn btn-outline-primary btn-sm py-0 px-2 me-1" title="Edit"><i class="bi bi-pencil"></i></button>
+                    <button onclick="deleteSingleRecord('${r.studentid}', '${r.subjects}', '${r.component}')" class="btn btn-outline-danger btn-sm py-0 px-2" title="Delete"><i class="bi bi-trash"></i></button>
+                </td>
             </tr>`;
     });
+
+    updateRecordDeleteBtnState();
 }
 
-function renderAuditTable(list) {
-    const tbody = document.getElementById('tableAuditBody');
-    tbody.innerHTML = '';
-    if (list.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-secondary p-4">NO AUDIT LOGS.</td></tr>`; return; }
-
-    list.forEach(a => {
-        tbody.innerHTML += `
-            <tr>
-                <td class="text-dark">${a.ack_id || a.id}</td>
-                <td class="fw-bold text-dark">${a.studentid}</td>
-                <td class="text-dark">${a.subjects || 'N/A'}</td>
-                <td><span class="badge bg-success px-2 py-1">${a.action_type || 'LOGIN'}</span></td>
-                <td class="text-dark fw-bold">${new Date(a.acknowledged_at).toLocaleString()}</td>
-            </tr>`;
-    });
+function updateRecordDeleteBtnState() {
+    const checked = document.querySelectorAll('.record-checkbox:checked').length;
+    document.getElementById('deleteSelectedRecordsBtn').disabled = (checked === 0);
 }
 
-function filterStudentTable() {
-    const query = document.getElementById('searchStudentBox').value.toUpperCase();
-    const filtered = cacheStudents.filter(s => s.studentid.includes(query) || (s.lastname && s.lastname.includes(query)) || (s.firstname && s.firstname.includes(query)));
-    renderStudentsTable(filtered);
+function toggleSelectAllRecords(master) {
+    document.querySelectorAll('.record-checkbox').forEach(cb => cb.checked = master.checked);
+    updateRecordDeleteBtnState();
 }
 
-function filterTeacherTable() {
-    const query = document.getElementById('searchTeacherBox').value.toUpperCase();
-    const filtered = cacheTeachers.filter(t => t.teacherid.includes(query) || (t.lastname && t.lastname.includes(query)) || (t.firstname && t.firstname.includes(query)));
-    renderTeachersTable(filtered);
-}
-
-async function deleteStudent(id) {
-    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE STUDENT: ${id}?`)) return;
-    showLoading(true);
-    await _supabase.from('tblstudentuser').delete().eq('studentid', id);
+async function deleteSingleRecord(stuId, sub, comp) {
+    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE GRADE RECORD FOR STUDENT: ${stuId} (${sub} - ${comp})?`)) return;
+    showLoading(true, "DELETING RECORD...");
+    await _supabase.from('tblrecords').delete().eq('studentid', stuId).eq('subjects', sub).eq('component', comp);
     showLoading(false);
-    showAlert("STUDENT DELETED SUCCESSFULLY.");
-    loadAllData();
+    showAlert("RECORD DELETED SUCCESSFULLY.");
+    executeRecordSearch();
 }
 
-async function deleteTeacher(id) {
-    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE TEACHER: ${id}?`)) return;
-    showLoading(true);
-    await _supabase.from('tblteacheruser').delete().eq('teacherid', id);
+async function deleteSelectedRecords() {
+    const checked = document.querySelectorAll('.record-checkbox:checked');
+    if (checked.length === 0) return;
+    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE ALL ${checked.length} SELECTED GRADE RECORD(S)?`)) return;
+
+    showLoading(true, "DELETING SELECTED RECORDS...");
+    let count = 0;
+    for (let cb of checked) {
+        const parts = cb.value.split('|');
+        const { error } = await _supabase.from('tblrecords').delete().eq('studentid', parts[0]).eq('subjects', parts[1]).eq('component', parts[2]);
+        if (!error) count++;
+    }
     showLoading(false);
-    showAlert("TEACHER DELETED SUCCESSFULLY.");
-    loadAllData();
+    showAlert(`DELETED ${count} GRADE RECORD(S) SUCCESSFULLY.`);
+    executeRecordSearch();
 }
 
-async function deleteRecord(recordId) {
-    showLoading(true);
-    await _supabase.from('tblrecords').delete().eq('record_id', recordId);
+function openEditRecordModal(stuId, teachId, last, first, sub, comp, res, sched) {
+    document.getElementById('editRecordStudentId').value = stuId;
+    document.getElementById('editRecordDisplayStudentId').value = stuId;
+    document.getElementById('editRecordOriginalSubject').value = sub;
+    document.getElementById('editRecordOriginalComponent').value = comp;
+
+    document.getElementById('editRecordTeacherId').value = teachId;
+    document.getElementById('editRecordLastName').value = last;
+    document.getElementById('editRecordFirstName').value = first;
+    document.getElementById('editRecordSubject').value = sub;
+    document.getElementById('editRecordComponent').value = comp;
+    document.getElementById('editRecordResult').value = res;
+    document.getElementById('editRecordSchedtag').value = sched;
+
+    new bootstrap.Modal(document.getElementById('editRecordModal')).show();
+}
+
+document.getElementById('editRecordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const stuId = document.getElementById('editRecordStudentId').value;
+    const origSub = document.getElementById('editRecordOriginalSubject').value;
+    const origComp = document.getElementById('editRecordOriginalComponent').value;
+
+    const teachId = document.getElementById('editRecordTeacherId').value.trim().toUpperCase();
+    const last = document.getElementById('editRecordLastName').value.trim().toUpperCase();
+    const first = document.getElementById('editRecordFirstName').value.trim().toUpperCase();
+    const newSub = document.getElementById('editRecordSubject').value.trim().toUpperCase();
+    const newComp = document.getElementById('editRecordComponent').value.trim().toUpperCase();
+    const newRes = document.getElementById('editRecordResult').value.trim().toUpperCase();
+    const sched = document.getElementById('editRecordSchedtag').value.trim().toUpperCase();
+
+    showLoading(true, "SAVING GRADE RECORD CHANGES...");
+
+    const { error } = await _supabase.from('tblrecords').update({
+        teacherid: teachId,
+        lastname: last,
+        firstname: first,
+        subjects: newSub,
+        component: newComp,
+        result: newRes,
+        schedtag: sched
+    }).eq('studentid', stuId).eq('subjects', origSub).eq('component', origComp);
+
     showLoading(false);
-    showAlert("RECORD DELETED.");
-    loadAllData();
-}
+    bootstrap.Modal.getInstance(document.getElementById('editRecordModal'))?.hide();
 
-async function clearAllRecords() {
-    if (!confirm("WARNING: THIS WILL PERMANENTLY PURGE ALL GRADE RECORDS IN THE ENTIRE SYSTEM. CONTINUE?")) return;
-    showLoading(true, "PURGING ALL RECORDS...");
-    await _supabase.from('tblrecords').delete().gte('record_id', 0);
-    showLoading(false);
-    showAlert("ALL RECORDS PURGED.");
-    loadAllData();
-}
+    if (error) showAlert("FAILED TO SAVE CHANGES: " + error.message);
+    else {
+        showAlert("GRADE RECORD UPDATED SUCCESSFULLY.");
+        executeRecordSearch();
+    }
+});
 
-document.getElementById('formStudentCsv').addEventListener('submit', function(e) {
+// ----------------------------------------------------
+// BATCH UPLOAD PROCESS WITH UTF-8 SPECIAL CHARACTER (Ñ) HANDLING
+// ----------------------------------------------------
+
+// 1. STUDENTS UPLOAD
+document.getElementById('formStudentCsv').addEventListener('submit', async function(e) {
     e.preventDefault();
     const file = document.getElementById('studentCsvFile').files[0];
     if (!file) return;
 
-    showLoading(true, "IMPORTING STUDENTS...");
+    showLoading(true, "READING FILE (UTF-8)...");
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
     const reader = new FileReader();
+
     reader.onload = async function(evt) {
-        const lines = evt.target.result.split('\n');
-        let count = 0;
-        for (let i = 1; i < lines.length; i++) {
-            const row = lines[i].split(',').map(s => s ? s.trim() : '');
-            if (row.length >= 4 && row[0] && row[1]) {
-                await _supabase.from('tblstudentuser').upsert([{ studentid: row[0].toUpperCase(), password: row[1], lastname: row[2].toUpperCase(), firstname: row[3].toUpperCase() }]);
-                count++;
+        let validRows = [];
+        if (isExcel) {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array', codepage: 65001 });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            for (let i = 1; i < jsonRows.length; i++) {
+                const row = jsonRows[i].map(x => x !== undefined && x !== null ? String(x).trim() : '');
+                if (row.length >= 2 && row[0] && row[1]) validRows.push(row);
+            }
+        } else {
+            const lines = evt.target.result.split('\n');
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i].split(',').map(s => s ? s.trim() : '');
+                if (row.length >= 2 && row[0] && row[1]) validRows.push(row);
             }
         }
+
+        const total = validRows.length;
+        if (total === 0) { showLoading(false); showAlert("NO VALID STUDENT RECORDS FOUND."); return; }
+
+        let count = 0;
+        for (let idx = 0; idx < total; idx++) {
+            const row = validRows[idx];
+            showLoading(true, `PROCESSING RECORDS... (${idx + 1} OF ${total})`);
+
+            const payload = {
+                studentid: row[0].toUpperCase(),
+                password: row[1],
+                lastname: (row[2] || '').toUpperCase(),
+                firstname: (row[3] || '').toUpperCase()
+            };
+
+            const { error } = await _supabase.from('tblstudentuser').upsert([payload]);
+            if (!error) count++;
+            await new Promise(r => setTimeout(r, 0));
+        }
+
         showLoading(false);
-        showAlert(`IMPORTED ${count} STUDENT ACCOUNTS!`);
+        showAlert(`FILE PROCESSED: PROCESSED ${count} OF ${total} STUDENT ACCOUNTS SUCCESSFULLY.`);
         document.getElementById('studentCsvFile').value = '';
-        loadAllData();
+        executeStudentSearch();
     };
-    reader.readAsText(file);
+
+    if (isExcel) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file, 'UTF-8');
 });
 
-document.getElementById('formTeacherCsv').addEventListener('submit', function(e) {
+// 2. TEACHERS UPLOAD
+document.getElementById('formTeacherCsv').addEventListener('submit', async function(e) {
     e.preventDefault();
     const file = document.getElementById('teacherCsvFile').files[0];
     if (!file) return;
 
-    showLoading(true, "IMPORTING TEACHERS...");
+    showLoading(true, "READING FILE (UTF-8)...");
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
     const reader = new FileReader();
+
     reader.onload = async function(evt) {
-        const lines = evt.target.result.split('\n');
-        let count = 0;
-        for (let i = 1; i < lines.length; i++) {
-            const row = lines[i].split(',').map(s => s ? s.trim() : '');
-            if (row.length >= 7 && row[0] && row[1]) {
-                await _supabase.from('tblteacheruser').upsert([{ teacherid: row[0].toUpperCase(), password: row[1], lastname: row[2].toUpperCase(), firstname: row[3].toUpperCase(), subjecthandled: row[4].toUpperCase(), schoolyear: row[5].toUpperCase(), semester: parseInt(row[6]) || 1 }]);
-                count++;
+        let validRows = [];
+        if (isExcel) {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array', codepage: 65001 });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            for (let i = 1; i < jsonRows.length; i++) {
+                const row = jsonRows[i].map(x => x !== undefined && x !== null ? String(x).trim() : '');
+                if (row.length >= 2 && row[0] && row[1]) validRows.push(row);
+            }
+        } else {
+            const lines = evt.target.result.split('\n');
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i].split(',').map(s => s ? s.trim() : '');
+                if (row.length >= 2 && row[0] && row[1]) validRows.push(row);
             }
         }
+
+        const total = validRows.length;
+        if (total === 0) { showLoading(false); showAlert("NO VALID TEACHER RECORDS FOUND."); return; }
+
+        let count = 0;
+        for (let idx = 0; idx < total; idx++) {
+            const row = validRows[idx];
+            showLoading(true, `PROCESSING RECORDS... (${idx + 1} OF ${total})`);
+
+            const payload = {
+                teacherid: row[0].toUpperCase(),
+                password: row[1],
+                lastname: (row[2] || '').toUpperCase(),
+                firstname: (row[3] || '').toUpperCase(),
+                subjecthandled: (row[4] || '').toUpperCase(),
+                schoolyear: (row[5] || '2026-2027').toUpperCase(),
+                semester: parseInt(row[6]) || 1
+            };
+
+            const { error } = await _supabase.from('tblteacheruser').upsert([payload]);
+            if (!error) count++;
+            await new Promise(r => setTimeout(r, 0));
+        }
+
         showLoading(false);
-        showAlert(`IMPORTED ${count} TEACHER ACCOUNTS!`);
+        showAlert(`FILE PROCESSED: PROCESSED ${count} OF ${total} TEACHER ACCOUNTS SUCCESSFULLY.`);
         document.getElementById('teacherCsvFile').value = '';
-        loadAllData();
+        executeTeacherSearch();
     };
-    reader.readAsText(file);
+
+    if (isExcel) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file, 'UTF-8');
 });
 
-document.getElementById('formRecordCsv').addEventListener('submit', function(e) {
+// 3. MASTER GRADE RECORDS UPLOAD
+document.getElementById('formRecordCsv').addEventListener('submit', async function(e) {
     e.preventDefault();
     const file = document.getElementById('recordCsvFile').files[0];
     if (!file) return;
 
-    showLoading(true, "IMPORTING GRADE RECORDS...");
+    showLoading(true, "READING FILE (UTF-8)...");
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
     const reader = new FileReader();
+
     reader.onload = async function(evt) {
-        const lines = evt.target.result.split('\n');
-        let count = 0;
-        for (let i = 1; i < lines.length; i++) {
-            const row = lines[i].split(',').map(s => s ? s.trim() : '');
-            if (row.length >= 11 && row[0] && row[6] && row[7]) {
-                const payload = {
-                    studentid: row[0].toUpperCase(),
-                    teacherid: row[1].toUpperCase(),
-                    lastname: row[2].toUpperCase(),
-                    firstname: row[3].toUpperCase(),
-                    course: row[4].toUpperCase(),
-                    schedtag: row[5].toUpperCase(),
-                    subjects: row[6].toUpperCase(),
-                    component: row[7].toUpperCase(),
-                    result: row[8].toUpperCase(),
-                    schoolyear: row[9].toUpperCase(),
-                    semester: parseInt(row[10]) || 1
-                };
-                await _supabase.from('tblrecords').upsert([payload]);
-                count++;
+        let validRows = [];
+        if (isExcel) {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array', codepage: 65001 });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            for (let i = 1; i < jsonRows.length; i++) {
+                const row = jsonRows[i].map(x => x !== undefined && x !== null ? String(x).trim() : '');
+                if (row.length >= 11 && row[0] && row[6] && row[7]) validRows.push(row);
+            }
+        } else {
+            const lines = evt.target.result.split('\n');
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i].split(',').map(s => s ? s.trim() : '');
+                if (row.length >= 11 && row[0] && row[6] && row[7]) validRows.push(row);
             }
         }
+
+        const total = validRows.length;
+        if (total === 0) { showLoading(false); showAlert("NO VALID GRADE RECORDS FOUND."); return; }
+
+        let count = 0;
+        for (let idx = 0; idx < total; idx++) {
+            const row = validRows[idx];
+            showLoading(true, `PROCESSING RECORDS... (${idx + 1} OF ${total})`);
+
+            const payload = {
+                studentid: row[0].toUpperCase(),
+                teacherid: row[1].toUpperCase(),
+                lastname: row[2].toUpperCase(),
+                firstname: row[3].toUpperCase(),
+                course: row[4].toUpperCase(),
+                schedtag: row[5].toUpperCase(),
+                subjects: row[6].toUpperCase(),
+                component: row[7].toUpperCase(),
+                result: row[8].toUpperCase(),
+                schoolyear: row[9].toUpperCase(),
+                semester: parseInt(row[10]) || 1
+            };
+
+            const { data: updateData, error: updateError } = await _supabase
+                .from('tblrecords')
+                .update(payload)
+                .eq('studentid', payload.studentid)
+                .eq('subjects', payload.subjects)
+                .eq('component', payload.component)
+                .select();
+
+            if (!updateError && (!updateData || updateData.length === 0)) {
+                const { error: insertError } = await _supabase.from('tblrecords').insert([payload]);
+                if (!insertError) count++;
+            } else if (!updateError) {
+                count++;
+            }
+
+            await new Promise(r => setTimeout(r, 0));
+        }
+
         showLoading(false);
-        showAlert(`IMPORTED ${count} GRADE RECORDS!`);
+        showAlert(`FILE PROCESSED: PROCESSED ${count} OF ${total} GRADE RECORDS SUCCESSFULLY.`);
         document.getElementById('recordCsvFile').value = '';
-        loadAllData();
+        executeRecordSearch();
     };
-    reader.readAsText(file);
+
+    if (isExcel) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file, 'UTF-8');
 });
+
+// ----------------------------------------------------
+// EXCEL (.XLSX) TEMPLATE DOWNLOADERS
+// ----------------------------------------------------
+function downloadStudentTemplate() {
+    const templateData = [
+        ["studentid", "password", "lastname", "firstname"],
+        ["2026-0001", "student123", "NINO", "JUAN"]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Students");
+    XLSX.writeFile(wb, "Students_Template.xlsx");
+}
+
+function downloadTeacherTemplate() {
+    const templateData = [
+        ["teacherid", "password", "lastname", "firstname", "subjecthandled", "schoolyear", "semester"],
+        ["T-101", "teacher123", "CAÑEDO", "ALAN", "COMP1", "2026-2027", "1"]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Teachers");
+    XLSX.writeFile(wb, "Teachers_Template.xlsx");
+}
+
+function downloadRecordTemplate() {
+    const templateData = [
+        ["studentid", "teacherid", "lastname", "firstname", "course", "schedtag", "subjects", "component", "result", "schoolyear", "semester"],
+        ["L25-01-2006", "2008-003", "PEREZ", "CHRISTINA", "BSA", "BSA2-A", "COMP1", "PRELIM QUIZ 1", "22/25", "2026-2027", "1"]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "GradeRecords");
+    XLSX.writeFile(wb, "Grade_Records_Template.xlsx");
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     autoCapitalizeInputs();
-    loadAllData();
+    enableInterchangeableColumns();
+    loadOverviewAnalytics();
 });
 </script>
 </body>
