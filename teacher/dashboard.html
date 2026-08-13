@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="../js/supabase-config.js"></script>
     <style>
         :root { --sidebar-width: 280px; }
@@ -146,8 +147,16 @@
             border: 1px solid rgba(255, 255, 255, 0.5); 
             color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+            transition: all 0.2s ease;
         }
-        .btn-glass-green:hover { color: #ffffff; opacity: 0.95; }
+        .btn-glass-green:hover:not(:disabled) { color: #ffffff; opacity: 0.95; }
+        .btn-glass-green:disabled { 
+            background: #94a3b8 !important; 
+            border-color: #cbd5e1 !important; 
+            box-shadow: none !important; 
+            opacity: 0.6; 
+            cursor: not-allowed; 
+        }
 
         .btn-glass-blue { 
             background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); 
@@ -186,11 +195,8 @@
             border: 1px solid rgba(255, 255, 255, 0.3) !important; 
             font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
             padding: 0.9rem 0.75rem;
-            cursor: grab;
             user-select: none;
         }
-        .table-glass th:active { cursor: grabbing; }
-        .table-glass th.dragging { opacity: 0.5; background: #0284c7 !important; }
         .table-glass td { 
             background: rgba(255, 255, 255, 0.6) !important; 
             border: 1px solid rgba(226, 232, 240, 0.8) !important; 
@@ -261,11 +267,11 @@
     </div>
 </div>
 
-<!-- Complete Column Edit Student Record Modal -->
+<!-- Edit Student Record Modal -->
 <div class="modal fade" id="editRecordModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content modal-glass p-4 text-start">
-            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-pencil-square me-2 text-primary"></i>EDIT STUDENT RECORD (ALL GRID COLUMNS)</h5>
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-pencil-square me-2 text-primary"></i>EDIT STUDENT RECORD</h5>
             <form id="editRecordForm">
                 <input type="hidden" id="editOriginalStudentId">
                 <input type="hidden" id="editOriginalSubject">
@@ -273,7 +279,7 @@
                 <div class="row g-2 mb-3">
                     <div class="col-md-6">
                         <label class="form-label text-dark small fw-bold">STUDENT ID</label>
-                        <input type="text" id="editStudentId" class="form-control form-control-sm" required>
+                        <input type="text" id="editStudentId" class="form-control form-control-sm bg-light text-muted" readonly required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label text-dark small fw-bold">SUBJECT</label>
@@ -341,10 +347,10 @@
                     <div id="collapseDashboard" class="accordion-collapse collapse" data-bs-parent="#sidebarMenuAccordion">
                         <div class="sidebar-sub-menu">
                             <a class="nav-item-link" onclick="switchView('viewUpload', this)">
-                                <i class="bi bi-cloud-upload"></i><span>Upload Records (CSV)</span>
+                                <i class="bi bi-cloud-upload"></i><span>Upload Records</span>
                             </a>
                             <a class="nav-item-link" onclick="switchView('viewFilterGrid', this)">
-                                <i class="bi bi-funnel"></i><span>Filter View & Grid</span>
+                                <i class="bi bi-funnel"></i><span>Filter and Edit Records</span>
                             </a>
                         </div>
                     </div>
@@ -391,74 +397,81 @@
             <img src="../logo.png" alt="St. Vincent College Logo" class="watermark-img" onerror="this.style.display='none'">
         </div>
 
-        <!-- PANEL 1: CSV UPLOAD -->
+        <!-- PANEL 1: CSV / XLSX UPLOAD -->
         <div id="viewUpload" class="content-panel mb-4">
             <div class="glass-card card-header-gradient p-4">
-                <h5 class="fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>UPLOAD RECORDS (CSV)</h5>
+                <h5 class="fw-bold mb-3"><i class="bi bi-cloud-upload me-2"></i>UPLOAD RECORDS</h5>
                 <form id="uploadCsvForm">
                     <div class="mb-3">
-                        <input type="file" id="csvFileInput" class="form-control" accept=".csv" required>
+                        <input type="file" id="csvFileInput" class="form-control" accept=".csv, .xlsx, .xls" required>
                     </div>
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <button type="submit" class="btn btn-glass-green px-4">UPLOAD & UPDATE</button>
-                        <a href="data:text/csv;charset=utf-8,studentid,teacherid,lastname,firstname,course,schedtag,subjects,component,result,schoolyear,semester%0A2025-0001,T-101,DELA CRUZ,JUAN,BSIT,SEC-A,CS101,QUIZ1,85,2025-2026,1" download="sample_template.csv" class="btn btn-glass-blue btn-sm">DOWNLOAD CSV TEMPLATE</a>
+                        <button type="button" onclick="downloadExcelTemplate()" class="btn btn-glass-blue btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>DOWNLOAD TEMPLATE (.XLSX)</button>
                     </div>
                 </form>
             </div>
         </div>
 
-        <!-- PANEL 2: FILTER & GRID VIEW -->
+        <!-- PANEL 2: UNIFIED SEARCH & FILTER VIEW -->
         <div id="viewFilterGrid" class="content-panel">
             <div class="glass-card card-header-gradient p-4 mb-4 filter-card-wrapper">
-                <h5 class="fw-bold mb-3"><i class="bi bi-funnel me-2"></i>FILTER VIEW</h5>
+                <h5 class="fw-bold mb-3"><i class="bi bi-funnel me-2"></i>SEARCH & FILTER RECORDS</h5>
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <label class="form-label text-white small fw-bold">SCHOOL YEAR</label>
-                        <select id="filterSy" class="form-select form-select-sm" onchange="applyFilters()"></select>
+                        <label class="form-label text-white small fw-bold">SCHOOL YEAR *</label>
+                        <select id="filterSy" class="form-select form-select-sm" onchange="validateSearchForm()"></select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label text-white small fw-bold">SEMESTER</label>
-                        <select id="filterSem" class="form-select form-select-sm" onchange="applyFilters()">
+                        <label class="form-label text-white small fw-bold">SEMESTER *</label>
+                        <select id="filterSem" class="form-select form-select-sm" onchange="validateSearchForm()">
+                            <option value="">SELECT SEMESTER</option>
                             <option value="1">First Semester</option>
                             <option value="2">Second Semester</option>
                             <option value="3">Summer</option>
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label text-white small fw-bold">SUBJECT</label>
-                        <select id="filterSubject" class="form-select form-select-sm" onchange="applyFilters()">
-                            <option value="">ALL SUBJECTS</option>
+                        <label class="form-label text-white small fw-bold">SUBJECT *</label>
+                        <select id="filterSubject" class="form-select form-select-sm" onchange="validateSearchForm()">
+                            <option value="">SELECT SUBJECT</option>
                         </select>
                     </div>
                     <div class="col-md-3" style="position: relative;">
-                        <label class="form-label text-white small fw-bold">COMPONENT</label>
+                        <label class="form-label text-white small fw-bold">COMPONENT *</label>
                         <input type="hidden" id="selectedComponentInput" value="">
                         <div class="comp-dropdown-btn" onclick="toggleComponentMenu(event)">
-                            <span id="selectedComponentText">ALL COMPONENTS</span>
+                            <span id="selectedComponentText">SELECT COMPONENT</span>
                             <i class="bi bi-chevron-down"></i>
                         </div>
                         <div class="comp-dropdown-menu" id="compDropdownMenu">
-                            <div class="comp-opt-item fw-bold text-success" onclick="selectComponent('')">ALL COMPONENTS</div>
+                            <div class="comp-opt-item fw-bold text-success" onclick="selectComponent('ALL')">ALL COMPONENTS</div>
                             <div id="componentGroupContainer"></div>
                         </div>
                     </div>
+                    <div class="col-12">
+                        <label class="form-label text-white small fw-bold">SEARCH QUERY * (LASTNAME, FIRSTNAME, STUDENT ID, SCHEDTAG)</label>
+                        <input type="text" id="unifiedSearchBox" class="form-control form-control-sm" placeholder="ENTER STUDENT ID, LASTNAME, FIRSTNAME, COURSE OR SCHEDTAG..." oninput="validateSearchForm()" onkeydown="if(event.key==='Enter' && !document.getElementById('applySearchBtn').disabled) executeUnifiedSearch()">
+                    </div>
                     <div class="col-12 mt-3">
-                        <button onclick="applyFilters()" class="btn btn-glass-green w-100 py-2"><i class="bi bi-filter"></i> APPLY FILTERS</button>
+                        <button id="applySearchBtn" onclick="executeUnifiedSearch()" class="btn btn-glass-green w-100 py-2" disabled>
+                            <i class="bi bi-search me-1"></i> APPLY FILTERS / SEARCH
+                        </button>
                     </div>
                 </div>
             </div>
 
+            <!-- RECORDS GRID CONTAINER -->
             <div class="glass-card p-4 grid-card-wrapper">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                    <h5 class="fw-bold text-dark m-0"><i class="bi bi-table me-2"></i>STUDENT RECORDS GRID</h5>
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <!-- GRID SEARCH BOX WITH FIND BUTTON -->
-                        <div class="input-group input-group-sm" style="width: 320px;">
-                            <input type="text" id="gridSearchBox" class="form-control form-control-sm" placeholder="SEARCH GRID..." onkeydown="if(event.key==='Enter') executeFindSearch()">
-                            <button class="btn btn-glass-blue btn-sm px-3" type="button" onclick="executeFindSearch()">
-                                <i class="bi bi-search me-1"></i> FIND
-                            </button>
-                        </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <h5 class="fw-bold text-dark m-0"><i class="bi bi-table me-2"></i>STUDENT RECORDS GRID</h5>
+                        <!-- Record Count Badge Display -->
+                        <span id="recordCountBadge" class="badge bg-primary fs-6 px-3 py-2 rounded-pill shadow-sm" style="display: none;">
+                            RECORDS FOUND: 0
+                        </span>
+                    </div>
+                    <div>
                         <button onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3">
                             <i class="bi bi-trash me-1"></i> DELETE SELECTED RECORDS
                         </button>
@@ -471,15 +484,17 @@
                             <tr id="gridHeaderRow">
                                 <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>
                                 <th>STUDENT ID</th>
-                                <th>NAME</th>
-                                <th>COURSE</th>
+                                <th>LASTNAME</th>
+                                <th>FIRSTNAME</th>
                                 <th>SUBJECT</th>
                                 <th>SCHEDTAG</th>
+                                <th>COMPONENT</th>
+                                <th>RESULT</th>
                                 <th>ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody id="gridTableBody">
-                            <tr><td colspan="7" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>
+                            <tr><td colspan="9" class="text-secondary p-4">FILL IN ALL CRITERION ABOVE TO ACTIVATE AND EXECUTE SEARCH.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -506,7 +521,6 @@
 Auth.requireAuth('teacher');
 const teacher = Auth.getUser();
 
-// SETUP INITIALS FOR AVATAR LOGO
 function setupTeacherAvatar() {
     const fn = (teacher.firstname || '').trim();
     const ln = (teacher.lastname || '').trim();
@@ -520,7 +534,6 @@ function setupTeacherAvatar() {
 
 let rawTeacherRecords = [];
 let currentFilteredRecords = [];
-let columnOrder = [];
 
 function showAlert(msg) {
     document.getElementById('alertModalBody').innerText = msg;
@@ -576,22 +589,35 @@ function switchView(viewId, element) {
     }, 150);
 }
 
-// AUTOMATICALLY DYNAMIC SCHOOL YEAR INITIALIZATION
 function initSyDropdown() {
     const sySelect = document.getElementById('filterSy');
-    sySelect.innerHTML = '';
+    sySelect.innerHTML = '<option value="">SELECT SCHOOL YEAR</option>';
     
-    const currentYear = new Date().getFullYear();
-    const currentSy = `${currentYear}-${currentYear + 1}`;
-
     for (let y = 2025; y <= 2049; y++) {
         const val = `${y}-${y + 1}`;
-        const isSelected = (val === currentSy) ? 'selected' : '';
-        sySelect.innerHTML += `<option value="${val}" ${isSelected}>${val}</option>`;
+        sySelect.innerHTML += `<option value="${val}">${val}</option>`;
     }
 }
 
-async function loadTeacherDashboard() {
+// STRICT VALIDATION FOR FILTER BUTTON ACTIVATION
+function validateSearchForm() {
+    const sy = document.getElementById('filterSy').value;
+    const sem = document.getElementById('filterSem').value;
+    const sub = document.getElementById('filterSubject').value;
+    const comp = document.getElementById('selectedComponentInput').value;
+    const query = (document.getElementById('unifiedSearchBox').value || '').trim();
+
+    const applyBtn = document.getElementById('applySearchBtn');
+    
+    // Requires ALL 5 fields to be filled before enabling
+    if (sy && sem && sub && comp && query) {
+        applyBtn.disabled = false;
+    } else {
+        applyBtn.disabled = true;
+    }
+}
+
+async function loadTeacherDashboard(autoQueryStuId = null, autoSub = null) {
     showLoading(true, "LOADING TEACHER RECORDS...");
     setupTeacherAvatar();
     initSyDropdown();
@@ -605,13 +631,22 @@ async function loadTeacherDashboard() {
     if (!error && data) {
         rawTeacherRecords = data;
         populateFilterOptions();
-        applyFilters();
+
+        if (autoQueryStuId) {
+            if (autoSub) document.getElementById('filterSubject').value = autoSub;
+            document.getElementById('unifiedSearchBox').value = autoQueryStuId;
+            validateSearchForm();
+            if (!document.getElementById('applySearchBtn').disabled) {
+                await executeUnifiedSearch();
+            }
+        }
     }
 }
 
 function populateFilterOptions() {
     const subjectSelect = document.getElementById('filterSubject');
-    subjectSelect.innerHTML = '<option value="">ALL SUBJECTS</option>';
+    const currentSubVal = subjectSelect.value;
+    subjectSelect.innerHTML = '<option value="">SELECT SUBJECT</option>';
     
     const subjectsSet = new Set();
     const prelims = [], midterms = [], finals = [], others = [];
@@ -633,7 +668,8 @@ function populateFilterOptions() {
     });
 
     Array.from(subjectsSet).sort().forEach(s => {
-        subjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
+        const isSelected = (s === currentSubVal) ? 'selected' : '';
+        subjectSelect.innerHTML += `<option value="${s}" ${isSelected}>${s}</option>`;
     });
 
     const groupContainer = document.getElementById('componentGroupContainer');
@@ -666,189 +702,170 @@ function toggleAccordionGroup(e, targetId) {
 
 function selectComponent(val) {
     document.getElementById('selectedComponentInput').value = val;
-    document.getElementById('selectedComponentText').innerText = val !== '' ? val : 'ALL COMPONENTS';
+    document.getElementById('selectedComponentText').innerText = (!val) ? 'SELECT COMPONENT' : (val === 'ALL' ? 'ALL COMPONENTS' : val);
     document.getElementById('compDropdownMenu').classList.remove('show');
-    applyFilters();
+    validateSearchForm();
 }
 
-// EXECUTE SEARCH TRIGGERED BY FIND BUTTON OR ENTER KEY
-function executeFindSearch() {
-    showLoading(true, "SEARCHING RECORDS GRID...");
-    setTimeout(() => {
-        applyFilters();
-        showLoading(false);
-    }, 150);
-}
-
-function applyFilters() {
+// DIRECT DATABASE LIVE QUERY SEARCH EXECUTION
+async function executeUnifiedSearch() {
     const sy = document.getElementById('filterSy').value;
     const sem = document.getElementById('filterSem').value;
     const sub = document.getElementById('filterSubject').value;
     const comp = document.getElementById('selectedComponentInput').value;
-    const query = (document.getElementById('gridSearchBox')?.value || '').trim().toUpperCase();
+    const query = (document.getElementById('unifiedSearchBox').value || '').trim();
 
-    const filtered = rawTeacherRecords.filter(r => {
-        const matchSy = !sy || r.schoolyear === sy;
-        const matchSem = !sem || String(r.semester) === String(sem) || (sem === '1' && r.semester === 'First Semester') || (sem === '2' && r.semester === 'Second Semester') || (sem === '3' && r.semester === 'Summer');
-        const matchSub = !sub || (r.subjects && r.subjects.toUpperCase() === sub);
-        const matchComp = !comp || (r.component && r.component.toUpperCase() === comp);
-
-        const nameStr = `${r.lastname || ''} ${r.firstname || ''}`.toUpperCase();
-        const matchSearch = !query || 
-            (r.studentid && r.studentid.toUpperCase().includes(query)) ||
-            nameStr.includes(query) ||
-            (r.course && r.course.toUpperCase().includes(query)) ||
-            (r.subjects && r.subjects.toUpperCase().includes(query)) ||
-            (r.schedtag && r.schedtag.toUpperCase().includes(query));
-
-        return matchSy && matchSem && matchSub && matchComp && matchSearch;
-    });
-
-    renderRecordsGrid(filtered);
-}
-
-function renderRecordsGrid(records) {
-    currentFilteredRecords = records;
-    const tbody = document.getElementById('gridTableBody');
-    const theadRow = document.getElementById('gridHeaderRow');
-    
-    const pivoted = {};
-    const dynamicComps = new Set();
-
-    records.forEach(r => {
-        const key = `${r.studentid}_${r.subjects}`;
-        if (!pivoted[key]) {
-            pivoted[key] = {
-                studentid: r.studentid,
-                lastname: r.lastname || '',
-                firstname: r.firstname || '',
-                name: `${r.lastname || ''}, ${r.firstname || ''}`,
-                course: r.course || '',
-                subjects: r.subjects || '',
-                schedtag: r.schedtag || '',
-                results: {}
-            };
-        }
-        pivoted[key].results[r.component] = r.result;
-        if (r.component) dynamicComps.add(r.component);
-    });
-
-    const compList = Array.from(dynamicComps);
-
-    // Default column structure
-    if (columnOrder.length === 0 || columnOrder.length !== (5 + compList.length)) {
-        columnOrder = [
-            { id: 'col_studentid', key: 'studentid', label: 'STUDENT ID' },
-            { id: 'col_name', key: 'name', label: 'NAME' },
-            { id: 'col_course', key: 'course', label: 'COURSE' },
-            { id: 'col_subjects', key: 'subjects', label: 'SUBJECT' },
-            ...compList.map((c, i) => ({ id: `col_comp_${i}`, key: `comp_${c}`, compName: c, label: c, isComp: true })),
-            { id: 'col_schedtag', key: 'schedtag', label: 'SCHEDTAG' }
-        ];
-    }
-
-    // MULTI-COLUMN SORT: Schedtag -> Name -> Course -> Subject (A-Z)
-    const pivotKeys = Object.keys(pivoted).sort((a, b) => {
-        const itemA = pivoted[a];
-        const itemB = pivoted[b];
-
-        const schedCompare = (itemA.schedtag || '').localeCompare(itemB.schedtag || '');
-        if (schedCompare !== 0) return schedCompare;
-
-        const nameCompare = (itemA.name || '').localeCompare(itemB.name || '');
-        if (nameCompare !== 0) return nameCompare;
-
-        const courseCompare = (itemA.course || '').localeCompare(itemB.course || '');
-        if (courseCompare !== 0) return courseCompare;
-
-        return (itemA.subjects || '').localeCompare(itemB.subjects || '');
-    });
-
-    renderHeaderAndRows(pivotKeys, pivoted, compList);
-}
-
-function renderHeaderAndRows(pivotKeys, pivoted, compList) {
-    const tbody = document.getElementById('gridTableBody');
-    const theadRow = document.getElementById('gridHeaderRow');
-
-    // Build Header
-    let headerHtml = `<th style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>`;
-    columnOrder.forEach((col, idx) => {
-        const textClass = col.isComp ? 'text-white' : '';
-        headerHtml += `<th draggable="true" data-col-index="${idx}" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragend="handleDragEnd(event)" class="${textClass}"><i class="bi bi-grip-vertical me-1 opacity-50"></i>${col.label}</th>`;
-    });
-    headerHtml += `<th>ACTIONS</th>`;
-    theadRow.innerHTML = headerHtml;
-
-    if (pivotKeys.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${2 + columnOrder.length}" class="text-secondary p-4">NO RECORDS FOUND FOR SPECIFIED CRITERIA.</td></tr>`;
+    if (!sy || !sem || !sub || !comp || !query) {
+        showAlert("PLEASE FILL IN ALL CRITERION BEFORE SEARCHING.");
         return;
     }
 
-    // Build Rows
+    showLoading(true, "QUERYING DATABASE...");
+
+    try {
+        let dbQuery = _supabase
+            .from('tblrecords')
+            .select('*')
+            .eq('teacherid', teacher.teacherid);
+
+        if (sy) {
+            dbQuery = dbQuery.eq('schoolyear', sy);
+        }
+
+        if (sub) {
+            dbQuery = dbQuery.ilike('subjects', sub);
+        }
+
+        if (comp && comp !== 'ALL') {
+            dbQuery = dbQuery.ilike('component', comp);
+        }
+
+        if (query) {
+            dbQuery = dbQuery.or(`lastname.ilike.%${query}%,firstname.ilike.%${query}%,studentid.ilike.%${query}%,schedtag.ilike.%${query}%,course.ilike.%${query}%`);
+        }
+
+        // Apply multi-level order if ALL COMPONENTS is chosen
+        if (!comp || comp === 'ALL') {
+            dbQuery = dbQuery
+                .order('lastname', { ascending: true })
+                .order('firstname', { ascending: true })
+                .order('subjects', { ascending: true })
+                .order('component', { ascending: true });
+        } else {
+            dbQuery = dbQuery
+                .order('lastname', { ascending: true })
+                .order('firstname', { ascending: true });
+        }
+
+        const { data, error } = await dbQuery;
+
+        showLoading(false);
+
+        if (error) {
+            console.error("Database search error:", error);
+            showAlert("FAILED TO FETCH RECORDS FROM DATABASE: " + error.message);
+            return;
+        }
+
+        let results = data || [];
+
+        // Flexible Semester fallback filter
+        if (sem) {
+            results = results.filter(r => {
+                return String(r.semester) === String(sem) || 
+                    (sem === '1' && (String(r.semester).toUpperCase().includes('FIRST') || String(r.semester) === '1')) || 
+                    (sem === '2' && (String(r.semester).toUpperCase().includes('SECOND') || String(r.semester) === '2')) || 
+                    (sem === '3' && (String(r.semester).toUpperCase().includes('SUMMER') || String(r.semester) === '3'));
+            });
+        }
+
+        // Strict client-side sorting guarantee for ALL COMPONENTS
+        if (!comp || comp === 'ALL') {
+            results.sort((a, b) => {
+                const compLast = (a.lastname || '').localeCompare(b.lastname || '');
+                if (compLast !== 0) return compLast;
+
+                const compFirst = (a.firstname || '').localeCompare(b.firstname || '');
+                if (compFirst !== 0) return compFirst;
+
+                const compSub = (a.subjects || '').localeCompare(b.subjects || '');
+                if (compSub !== 0) return compSub;
+
+                return (a.component || '').localeCompare(b.component || '');
+            });
+        } else {
+            results.sort((a, b) => {
+                const compLast = (a.lastname || '').localeCompare(b.lastname || '');
+                if (compLast !== 0) return compLast;
+                return (a.firstname || '').localeCompare(b.firstname || '');
+            });
+        }
+
+        renderRecordsGrid(results);
+
+    } catch (err) {
+        showLoading(false);
+        showAlert("AN UNEXPECTED ERROR OCCURRED WHILE QUERYING DATABASE.");
+        console.error(err);
+    }
+}
+
+// DIRECT GRID RENDERING FOR EXACT COLUMNS & SHOWING RECORD COUNT
+function renderRecordsGrid(records) {
+    currentFilteredRecords = records;
+    const tbody = document.getElementById('gridTableBody');
+    const badge = document.getElementById('recordCountBadge');
+
+    const totalCount = records ? records.length : 0;
+
+    // Display total records found badge
+    badge.innerText = `RECORDS FOUND: ${totalCount}`;
+    badge.style.display = 'inline-block';
+
+    if (!records || records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-secondary p-4">NO RECORDS MATCHED THE SPECIFIED CRITERIA DIRECTLY IN DATABASE.</td></tr>`;
+        return;
+    }
+
     tbody.innerHTML = '';
-    pivotKeys.forEach(k => {
-        const st = pivoted[k];
-        let rowHtml = `<tr><td><input type="checkbox" value="${st.studentid}|${st.subjects}" class="form-check-input record-checkbox"></td>`;
-
-        columnOrder.forEach(col => {
-            if (col.key === 'studentid') rowHtml += `<td class="fw-bold text-dark">${st.studentid}</td>`;
-            else if (col.key === 'name') rowHtml += `<td class="text-dark">${st.name}</td>`;
-            else if (col.key === 'course') rowHtml += `<td class="text-dark">${st.course}</td>`;
-            else if (col.key === 'subjects') rowHtml += `<td><span class="badge badge-blue px-2 py-1">${st.subjects}</span></td>`;
-            else if (col.key === 'schedtag') rowHtml += `<td class="text-dark fw-bold">${st.schedtag}</td>`;
-            else if (col.isComp) rowHtml += `<td class="fw-bold text-primary">${st.results[col.compName] || '-'}</td>`;
-        });
-
-        rowHtml += `
-            <td>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary py-0 px-2" onclick="openEditRecordModal('${st.studentid}', '${st.subjects}')" title="Edit Row All Columns"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-outline-danger py-0 px-2" onclick="deleteSingleRow('${st.studentid}', '${st.subjects}')" title="Delete Row"><i class="bi bi-trash"></i></button>
-                </div>
-            </td>
-        </tr>`;
+    records.forEach(r => {
+        let rowHtml = `
+            <tr>
+                <td><input type="checkbox" value="${r.studentid}|${r.subjects}|${r.component}" class="form-check-input record-checkbox"></td>
+                <td class="fw-bold text-dark">${r.studentid || ''}</td>
+                <td class="text-dark fw-bold">${r.lastname || ''}</td>
+                <td class="text-dark">${r.firstname || ''}</td>
+                <td><span class="badge badge-blue px-2 py-1">${r.subjects || ''}</span></td>
+                <td class="text-dark fw-bold">${r.schedtag || ''}</td>
+                <td class="text-primary fw-bold">${r.component || ''}</td>
+                <td class="fw-bold text-success">${r.result || '-'}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary py-0 px-2" onclick="openEditRecordModal('${r.studentid}', '${r.subjects}')" title="Edit Row"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-outline-danger py-0 px-2" onclick="deleteSingleRow('${r.studentid}', '${r.subjects}', '${r.component}')" title="Delete Row"><i class="bi bi-trash"></i></button>
+                    </div>
+                </td>
+            </tr>`;
         tbody.innerHTML += rowHtml;
     });
 }
 
-// DRAG AND DROP COLUMN REORDERING
-let dragSrcIndex = null;
+// INLINE EDIT MODAL OPENING - FETCHES DIRECTLY FROM DATABASE
+async function openEditRecordModal(studentId, subject) {
+    showLoading(true, "LOADING RECORD DATA FROM DATABASE...");
 
-function handleDragStart(e) {
-    dragSrcIndex = Number(e.currentTarget.getAttribute('data-col-index'));
-    e.currentTarget.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-}
+    try {
+        const { data: targetRecords, error } = await _supabase
+            .from('tblrecords')
+            .select('*')
+            .eq('teacherid', teacher.teacherid)
+            .ilike('studentid', studentId)
+            .ilike('subjects', subject);
 
-function handleDragOver(e) {
-    if (e.preventDefault) e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    return false;
-}
+        showLoading(false);
 
-function handleDrop(e) {
-    if (e.stopPropagation) e.stopPropagation();
-    const targetIndex = Number(e.currentTarget.getAttribute('data-col-index'));
-    if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
-        const movedCol = columnOrder.splice(dragSrcIndex, 1)[0];
-        columnOrder.splice(targetIndex, 0, movedCol);
-        applyFilters();
-    }
-    return false;
-}
-
-function handleDragEnd(e) {
-    e.currentTarget.classList.remove('dragging');
-}
-
-// INLINE EDITING INCLUDING ALL GRID COLUMNS
-function openEditRecordModal(studentId, subject) {
-    showLoading(true, "LOADING RECORD DATA...");
-    setTimeout(() => {
-        const targetRecords = rawTeacherRecords.filter(r => r.studentid === studentId && r.subjects === subject);
-        if (targetRecords.length === 0) {
-            showLoading(false);
+        if (error || !targetRecords || targetRecords.length === 0) {
+            showAlert("RECORD NOT FOUND FOR EDITING IN DATABASE.");
             return;
         }
 
@@ -885,21 +902,27 @@ function openEditRecordModal(studentId, subject) {
             });
         }
 
-        showLoading(false);
         new bootstrap.Modal(document.getElementById('editRecordModal')).show();
-    }, 100);
+
+    } catch (err) {
+        showLoading(false);
+        showAlert("ERROR FETCHING RECORD DETAILS FOR EDITING.");
+        console.error(err);
+    }
 }
 
+// EDIT SUBMIT HANDLER - GUARANTEED LIVE RE-FETCH AND SEARCH
 document.getElementById('editRecordForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const origStuId = document.getElementById('editOriginalStudentId').value;
-    const origSub = document.getElementById('editOriginalSubject').value;
+    
+    const origStuId = (document.getElementById('editOriginalStudentId').value || '').trim().toUpperCase();
+    const origSub = (document.getElementById('editOriginalSubject').value || '').trim().toUpperCase();
 
-    const newStuId = document.getElementById('editStudentId').value.trim().toUpperCase();
-    const newSub = document.getElementById('editSubject').value.trim().toUpperCase();
-    const nameStr = document.getElementById('editStudentName').value.trim();
-    const newCourse = document.getElementById('editCourse').value.trim().toUpperCase();
-    const newSchedtag = document.getElementById('editSchedtag').value.trim().toUpperCase();
+    const newStuId = (document.getElementById('editStudentId').value || '').trim().toUpperCase();
+    const newSub = (document.getElementById('editSubject').value || '').trim().toUpperCase();
+    const nameStr = (document.getElementById('editStudentName').value || '').trim();
+    const newCourse = (document.getElementById('editCourse').value || '').trim().toUpperCase();
+    const newSchedtag = (document.getElementById('editSchedtag').value || '').trim().toUpperCase();
 
     let newLast = '', newFirst = '';
     if (nameStr.includes(',')) {
@@ -912,23 +935,32 @@ document.getElementById('editRecordForm').addEventListener('submit', async (e) =
         newFirst = parts.slice(0, -1).join(' ').trim().toUpperCase();
     }
 
-    showLoading(true, "SAVING CHANGES TO ALL COLUMNS...");
+    showLoading(true, "SAVING CHANGES TO DATABASE...");
 
-    const targetRecords = rawTeacherRecords.filter(r => r.studentid === origStuId && r.subjects === origSub);
+    // Fetch existing records for meta fields
+    const { data: targetRecords } = await _supabase
+        .from('tblrecords')
+        .select('*')
+        .eq('teacherid', teacher.teacherid)
+        .ilike('studentid', origStuId)
+        .ilike('subjects', origSub);
+
     const compInputs = document.querySelectorAll('.edit-comp-input');
+    let hasError = false;
+    let errorMessage = '';
 
-    if (origStuId !== newStuId || origSub !== newSub) {
+    if (origSub !== newSub) {
         await _supabase.from('tblrecords')
             .delete()
             .eq('teacherid', teacher.teacherid)
-            .eq('studentid', origStuId)
-            .eq('subjects', origSub);
+            .ilike('studentid', origStuId)
+            .ilike('subjects', origSub);
     }
 
     for (let input of compInputs) {
-        const compName = input.getAttribute('data-comp');
+        const compName = (input.getAttribute('data-comp') || '').toUpperCase();
         const newResult = input.value.trim().toUpperCase();
-        const existingCompRec = targetRecords.find(r => (r.component || '').toUpperCase() === compName);
+        const existingCompRec = targetRecords ? targetRecords.find(r => (r.component || '').toUpperCase() === compName) : null;
 
         const payload = {
             studentid: newStuId,
@@ -940,28 +972,65 @@ document.getElementById('editRecordForm').addEventListener('submit', async (e) =
             subjects: newSub,
             component: compName,
             result: newResult,
-            schoolyear: existingCompRec ? existingCompRec.schoolyear : (targetRecords[0]?.schoolyear || '2025-2026'),
-            semester: existingCompRec ? existingCompRec.semester : (targetRecords[0]?.semester || '1')
+            schoolyear: existingCompRec ? existingCompRec.schoolyear : (targetRecords?.[0]?.schoolyear || '2025-2026'),
+            semester: existingCompRec ? existingCompRec.semester : (targetRecords?.[0]?.semester || '1')
         };
 
-        await _supabase.from('tblrecords').upsert([payload]);
+        const { data: updateData, error: updateError } = await _supabase
+            .from('tblrecords')
+            .update(payload)
+            .eq('teacherid', teacher.teacherid)
+            .ilike('studentid', newStuId)
+            .ilike('subjects', newSub)
+            .ilike('component', compName)
+            .select();
+
+        if (updateError) {
+            console.error("Database Update Error:", updateError);
+            hasError = true;
+            errorMessage = updateError.message || JSON.stringify(updateError);
+        } else if (!updateData || updateData.length === 0) {
+            const { error: insertError } = await _supabase
+                .from('tblrecords')
+                .insert([payload]);
+
+            if (insertError) {
+                console.error("Database Insert Error:", insertError);
+                hasError = true;
+                errorMessage = insertError.message || JSON.stringify(insertError);
+            }
+        }
     }
 
     showLoading(false);
     bootstrap.Modal.getInstance(document.getElementById('editRecordModal'))?.hide();
-    showAlert("RECORD AND ALL COLUMN VALUES UPDATED SUCCESSFULLY!");
-    loadTeacherDashboard();
+
+    if (hasError) {
+        showAlert(`FAILED TO SAVE CHANGES: ${errorMessage}`);
+    } else {
+        showAlert("RECORD AND GRADES UPDATED SUCCESSFULLY!");
+        document.getElementById('filterSubject').value = '';
+        document.getElementById('unifiedSearchBox').value = newStuId;
+        validateSearchForm();
+        if (!document.getElementById('applySearchBtn').disabled) {
+            await executeUnifiedSearch();
+        }
+    }
 });
 
-async function deleteSingleRow(stuId, sub) {
-    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE RECORD FOR STUDENT: ${stuId} (${sub})?`)) return;
+async function deleteSingleRow(stuId, sub, comp) {
+    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE RECORD FOR STUDENT: ${stuId} (${sub} - ${comp})?`)) return;
 
     showLoading(true, "DELETING RECORD...");
-    const { error } = await _supabase.from('tblrecords')
+    let query = _supabase.from('tblrecords')
         .delete()
         .eq('teacherid', teacher.teacherid)
         .eq('studentid', stuId)
         .eq('subjects', sub);
+
+    if (comp) query = query.eq('component', comp);
+
+    const { error } = await query;
 
     showLoading(false);
 
@@ -971,7 +1040,7 @@ async function deleteSingleRow(stuId, sub) {
     }
 
     showAlert("RECORD DELETED SUCCESSFULLY.");
-    loadTeacherDashboard();
+    await executeUnifiedSearch();
 }
 
 function toggleSelectAll(master) {
@@ -992,46 +1061,66 @@ async function deleteSelectedRecords() {
         const parts = cb.value.split('|');
         const stuId = parts[0];
         const sub = parts[1];
+        const comp = parts[2];
 
-        const { error } = await _supabase.from('tblrecords')
+        let query = _supabase.from('tblrecords')
             .delete()
             .eq('teacherid', teacher.teacherid)
             .eq('studentid', stuId)
             .eq('subjects', sub);
 
+        if (comp) query = query.eq('component', comp);
+
+        const { error } = await query;
         if (!error) deletedCount++;
     }
 
     showLoading(false);
-    showAlert(`SUCCESSFULLY DELETED RECORD ENTRY(IES).`);
-    loadTeacherDashboard();
+    showAlert(`SUCCESSFULLY DELETED ${deletedCount} RECORD ENTRY(IES).`);
+    await executeUnifiedSearch();
 }
 
-// ACCURATE CSV UPLOAD WITH LIVE COUNTING PROGRESS INDICATOR
+// EXCEL (.XLSX) AND CSV DUAL-FORMAT FILE UPLOADER
 document.getElementById('uploadCsvForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fileInput = document.getElementById('csvFileInput');
     if (!fileInput.files.length) return;
 
-    showLoading(true, "READING CSV FILE...");
+    showLoading(true, "READING FILE...");
     const file = fileInput.files[0];
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
     const reader = new FileReader();
 
     reader.onload = async function(e) {
-        const lines = e.target.result.split('\n');
-        
-        const validRows = [];
-        for (let i = 1; i < lines.length; i++) {
-            const row = lines[i].split(',').map(item => item ? item.trim() : '');
-            if (row.length >= 11 && row[0] && row[6] && row[7]) {
-                validRows.push(row);
+        let validRows = [];
+
+        if (isExcel) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            for (let i = 1; i < jsonRows.length; i++) {
+                const row = jsonRows[i].map(item => item !== undefined && item !== null ? String(item).trim() : '');
+                if (row.length >= 11 && row[0] && row[6] && row[7]) {
+                    validRows.push(row);
+                }
+            }
+        } else {
+            const lines = e.target.result.split('\n');
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i].split(',').map(item => item ? item.trim() : '');
+                if (row.length >= 11 && row[0] && row[6] && row[7]) {
+                    validRows.push(row);
+                }
             }
         }
 
         const totalRecords = validRows.length;
         if (totalRecords === 0) {
             showLoading(false);
-            showAlert("NO VALID CSV RECORDS FOUND.");
+            showAlert("NO VALID RECORDS FOUND IN FILE.");
             return;
         }
 
@@ -1041,36 +1130,73 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
             const row = validRows[idx];
             const currentNum = idx + 1;
 
-            showLoading(true, `PROCESSING CSV RECORDS... (${currentNum} OF ${totalRecords})`);
+            showLoading(true, `PROCESSING RECORDS... (${currentNum} OF ${totalRecords})`);
+
+            const stuId = row[0].toUpperCase();
+            const subName = row[6].toUpperCase();
+            const compName = row[7].toUpperCase();
 
             const payload = {
-                studentid: row[0].toUpperCase(),
+                studentid: stuId,
                 teacherid: teacher.teacherid,
                 lastname: row[2].toUpperCase(),
                 firstname: row[3].toUpperCase(),
                 course: row[4].toUpperCase(),
                 schedtag: row[5].toUpperCase(),
-                subjects: row[6].toUpperCase(),
-                component: row[7].toUpperCase(),
+                subjects: subName,
+                component: compName,
                 result: row[8].toUpperCase(),
                 schoolyear: row[9].toUpperCase(),
                 semester: row[10].toUpperCase()
             };
 
-            const { error } = await _supabase.from('tblrecords').upsert([payload]);
-            if (!error) inserted++;
+            const { data: updateData, error: updateError } = await _supabase
+                .from('tblrecords')
+                .update(payload)
+                .eq('teacherid', teacher.teacherid)
+                .ilike('studentid', stuId)
+                .ilike('subjects', subName)
+                .ilike('component', compName)
+                .select();
+
+            if (!updateError && (!updateData || updateData.length === 0)) {
+                const { error: insertError } = await _supabase
+                    .from('tblrecords')
+                    .insert([payload]);
+
+                if (!insertError) inserted++;
+            } else if (!updateError) {
+                inserted++;
+            }
 
             await new Promise(resolve => setTimeout(resolve, 0));
         }
 
         showLoading(false);
-        showAlert(`CSV PROCESSED: PROCESSED ${inserted} OF ${totalRecords} RECORDS SUCCESSFULLY.`);
+        showAlert(`FILE PROCESSED: PROCESSED ${inserted} OF ${totalRecords} RECORDS SUCCESSFULLY.`);
         fileInput.value = '';
-        loadTeacherDashboard();
+        await loadTeacherDashboard();
     };
 
-    reader.readAsText(file, 'UTF-8');
+    if (isExcel) {
+        reader.readAsArrayBuffer(file);
+    } else {
+        reader.readAsText(file, 'UTF-8');
+    }
 });
+
+function downloadExcelTemplate() {
+    const templateData = [
+        ["studentid", "teacherid", "lastname", "firstname", "course", "schedtag", "subjects", "component", "result", "schoolyear", "semester"],
+        ["2025-0001", "T-101", "DELA CRUZ", "JUAN", "BSIT", "SEC-A", "CS101", "PRELIM QUIZ 1", "85", "2025-2026", "1"]
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Records");
+
+    XLSX.writeFile(workbook, "Teachers_Record.xlsx");
+}
 
 document.addEventListener("DOMContentLoaded", function() {
     autoCapitalizeInputs();
@@ -1080,6 +1206,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.querySelectorAll('.nav-item-link').forEach(link => {
         link.addEventListener('click', closeMobileSidebar);
     });
+    validateSearchForm();
     loadTeacherDashboard();
 });
 </script>
