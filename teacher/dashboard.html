@@ -206,6 +206,27 @@
             background-color: rgba(14, 165, 233, 0.12) !important; 
         }
 
+        /* Sample Format Table Styling */
+        .sample-format-table {
+            font-size: 0.78rem;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+        }
+        .sample-format-table th {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+            font-weight: 700;
+            border: 1px solid #cbd5e1 !important;
+            text-align: center;
+            padding: 0.4rem 0.5rem;
+        }
+        .sample-format-table td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 0.35rem 0.5rem;
+            font-family: monospace;
+            color: #1e293b;
+        }
+
         /* Dropdown & Component Selection Styles */
         .comp-dropdown-btn { 
             background: rgba(255, 255, 255, 0.75); 
@@ -410,6 +431,151 @@
                         <button type="button" onclick="downloadExcelTemplate()" class="btn btn-glass-blue btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>DOWNLOAD TEMPLATE (.XLSX)</button>
                     </div>
                 </form>
+            </div>
+
+            <!-- VISUAL REFERENCE CARD FOR DATA FORMAT UPLOADING -->
+            <div class="glass-card p-4 mt-4">
+                <h6 class="fw-bold text-dark mb-3">
+                    <i class="bi bi-info-circle me-2 text-primary"></i>REQUIRED DATA FORMAT REFERENCE FOR UPLOAD (.CSV / .XLSX)
+                </h6>
+                <div class="table-responsive">
+                    <table class="table sample-format-table align-middle text-nowrap mb-0">
+                        <thead>
+                            <tr>
+                                <th>studentid</th>
+                                <th>teacherid</th>
+                                <th>lastname</th>
+                                <th>firstname</th>
+                                <th>course</th>
+                                <th>schedtag</th>
+                                <th>subjects</th>
+                                <th>component</th>
+                                <th>result</th>
+                                <th>schoolyear</th>
+                                <th>semester</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>L25-01-2006</td>
+                                <td>2008-003</td>
+                                <td>PEREZ</td>
+                                <td>CHRISTINA</td>
+                                <td>BSA</td>
+                                <td>BSA2-A</td>
+                                <td>COMP1</td>
+                                <td>PRELIM QUIZ 1</td>
+                                <td>22/25</td>
+                                <td>2026-2027</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td>L25-01-2006</td>
+                                <td>2008-003</td>
+                                <td>PEREZ</td>
+                                <td>CHRISTINA</td>
+                                <td>BSA</td>
+                                <td>BSA2-A</td>
+                                <td>COMP1</td>
+                                <td>PRELIM QUIZ 2</td>
+                                <td>22/25</td>
+                                <td>2026-2027</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td>L25-01-2006</td>
+                                <td>2008-003</td>
+                                <td>PEREZ</td>
+                                <td>CHRISTINA</td>
+                                <td>BSA</td>
+                                <td>BSA2-A</td>
+                                <td>COMP1</td>
+                                <td>PRELIM QUIZ 3</td>
+                                <td>22/25</td>
+                                <td>2026-2027</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td>L25-01-2006</td>
+                                <td>2008-003</td>
+                                <td>PEREZ</td>
+                                <td>CHRISTINA</td>
+                                <td>BSA</td>
+                                <td>BSA2-A</td>
+                                <td>COMP1</td>
+                                <td>PRELIM QUIZ GRADE</td>
+                                <td>85.65</td>
+                                <td>2026-2027</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td>L25-01-2006</td>
+                                <td>2008-003</td>
+                                <td>PEREZ</td>
+                                <td>CHRISTINA</td>
+                                <td>BSA</td>
+                                <td>BSA2-A</td>
+                                <td>COMP1</td>
+                                <td>PRELIM QUIZ GRADE EQUIVALENT</td>
+                                <td>34.3</td>
+                                <td>2026-2027</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td>L25-01-2006</td>
+                                <td>2008-003</td>
+                                <td>PEREZ</td>
+                                <td>CHRISTINA</td>
+                                <td>BSA</td>
+                                <td>BSA2-A</td>
+                                <td>COMP1</td>
+                                <td>PRELIM EXAMINATION SCORE</td>
+                                <td>41/45</td>
+                                <td>2026-2027</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td>L25-01-2006</td>
+                                <td>2008-003</td>
+                                <td>PEREZ</td>
+                                <td>CHRISTINA</td>
+                                <td>BSA</td>
+                                <td>BSA2-A</td>
+                                <td>COMP1</td>
+                                <td>PRELIM EXAMINATION GRADE</td>
+                                <td>87.28</td>
+                                <td>2026-2027</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td>L25-01-2006</td>
+                                <td>2008-003</td>
+                                <td>PEREZ</td>
+                                <td>CHRISTINA</td>
+                                <td>BSA</td>
+                                <td>BSA2-A</td>
+                                <td>COMP1</td>
+                                <td>PRELIM EXAMINATION GRADE EQUIVALENT</td>
+                                <td>52.37</td>
+                                <td>2026-2027</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td>L25-01-2006</td>
+                                <td>2008-003</td>
+                                <td>PEREZ</td>
+                                <td>CHRISTINA</td>
+                                <td>BSA</td>
+                                <td>BSA2-A</td>
+                                <td>COMP1</td>
+                                <td>PRELIM GRADE</td>
+                                <td>87</td>
+                                <td>2026-2027</td>
+                                <td>1</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -1188,7 +1354,7 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
 function downloadExcelTemplate() {
     const templateData = [
         ["studentid", "teacherid", "lastname", "firstname", "course", "schedtag", "subjects", "component", "result", "schoolyear", "semester"],
-        ["2025-0001", "T-101", "DELA CRUZ", "JUAN", "BSIT", "SEC-A", "CS101", "PRELIM QUIZ 1", "85", "2025-2026", "1"]
+        ["L25-01-2006", "2008-003", "PEREZ", "CHRISTINA", "BSA", "BSA2-A", "COMP1", "PRELIM QUIZ 1", "22/25", "2026-2027", "1"]
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(templateData);
