@@ -129,14 +129,14 @@
         .filter-card-wrapper { position: relative; z-index: 10; }
         .grid-card-wrapper { position: relative; z-index: 1; }
 
-        /* Form & Input Controls */
-        .form-control, .form-select { 
+        /* Form & Input Controls with Global Uppercase Styling */
+        .form-control, .form-select, input[type="text"] { 
             background: rgba(255, 255, 255, 0.75) !important; 
             border: 1px solid rgba(255, 255, 255, 0.85) !important; 
             color: #0f172a !important; 
             font-weight: 600;
             border-radius: 10px;
-            text-transform: uppercase; 
+            text-transform: uppercase !important; 
             backdrop-filter: blur(10px);
         }
         .form-select option { background: #ffffff; color: #0f172a; }
@@ -164,7 +164,14 @@
             color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
         }
-        .btn-glass-blue:hover { color: #ffffff; opacity: 0.95; }
+        .btn-glass-blue:hover:not(:disabled) { color: #ffffff; opacity: 0.95; }
+        .btn-glass-blue:disabled { 
+            background: #94a3b8 !important; 
+            border-color: #cbd5e1 !important; 
+            box-shadow: none !important; 
+            opacity: 0.6; 
+            cursor: not-allowed; 
+        }
 
         .btn-glass-red { 
             background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%); 
@@ -174,7 +181,7 @@
             transition: all 0.2s ease;
         }
         .btn-glass-red:hover:not(:disabled) { color: #ffffff; opacity: 0.95; }
-        .btn-glass-red:disabled {
+        .btn-glass-red:disabled { 
             background: #94a3b8 !important; 
             border-color: #cbd5e1 !important; 
             box-shadow: none !important; 
@@ -318,13 +325,17 @@
                         <label class="form-label text-dark small fw-bold">NAME (LASTNAME, FIRSTNAME)</label>
                         <input type="text" id="editStudentName" class="form-control form-control-sm" required>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label text-dark small fw-bold">COURSE</label>
                         <input type="text" id="editCourse" class="form-control form-control-sm" required>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label text-dark small fw-bold">SCHEDTAG</label>
                         <input type="text" id="editSchedtag" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-dark small fw-bold">SCHOOL BRANCH</label>
+                        <input type="text" id="editSchoolBranch" class="form-control form-control-sm" placeholder="E.G. LEGANES">
                     </div>
                 </div>
 
@@ -385,6 +396,22 @@
                     </div>
                 </div>
 
+                <!-- PRINT GRADE SHEET TOP-LEVEL ACCORDION SECTION -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingPrintGradeSheet">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePrintGradeSheet">
+                            <i class="bi bi-printer me-2"></i> Print Grade Sheet
+                        </button>
+                    </h2>
+                    <div id="collapsePrintGradeSheet" class="accordion-collapse collapse" data-bs-parent="#sidebarMenuAccordion">
+                        <div class="sidebar-sub-menu">
+                            <a class="nav-item-link" onclick="switchView('viewPrintGradeSheet', this)">
+                                <i class="bi bi-file-earmark-pdf"></i><span>Grade Sheet Generator</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="headingNavigation">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNavigation">
@@ -399,7 +426,6 @@
                             <a class="nav-item-link" onclick="switchView('viewSearchStudent', this)">
                                 <i class="bi bi-search"></i><span>Search Student</span>
                             </a>
-                            <!-- NEW DOWNLOADABLES SIDEBAR MENU -->
                             <a class="nav-item-link" onclick="switchView('viewDownloadables', this); fetchGitHubDownloads();">
                                 <i class="bi bi-download"></i><span>Downloadables</span>
                             </a>
@@ -465,6 +491,7 @@
                                 <th>result</th>
                                 <th>schoolyear</th>
                                 <th>semester</th>
+                                <th>schoolbranch</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -480,6 +507,7 @@
                                 <td>22/25</td>
                                 <td>2026-2027</td>
                                 <td>1</td>
+                                <td>LEGANES</td>
                             </tr>
                             <tr>
                                 <td>L25-01-2006</td>
@@ -493,6 +521,7 @@
                                 <td>22/25</td>
                                 <td>2026-2027</td>
                                 <td>1</td>
+                                <td>LEGANES</td>
                             </tr>
                             <tr>
                                 <td>L25-01-2006</td>
@@ -506,6 +535,7 @@
                                 <td>22/25</td>
                                 <td>2026-2027</td>
                                 <td>1</td>
+                                <td>LEGANES</td>
                             </tr>
                             <tr>
                                 <td>L25-01-2006</td>
@@ -519,6 +549,7 @@
                                 <td>85.65</td>
                                 <td>2026-2027</td>
                                 <td>1</td>
+                                <td>LEGANES</td>
                             </tr>
                             <tr>
                                 <td>L25-01-2006</td>
@@ -532,6 +563,7 @@
                                 <td>34.3</td>
                                 <td>2026-2027</td>
                                 <td>1</td>
+                                <td>LEGANES</td>
                             </tr>
                             <tr>
                                 <td>L25-01-2006</td>
@@ -545,6 +577,7 @@
                                 <td>41/45</td>
                                 <td>2026-2027</td>
                                 <td>1</td>
+                                <td>LEGANES</td>
                             </tr>
                             <tr>
                                 <td>L25-01-2006</td>
@@ -558,6 +591,7 @@
                                 <td>87.28</td>
                                 <td>2026-2027</td>
                                 <td>1</td>
+                                <td>LEGANES</td>
                             </tr>
                             <tr>
                                 <td>L25-01-2006</td>
@@ -571,6 +605,7 @@
                                 <td>52.37</td>
                                 <td>2026-2027</td>
                                 <td>1</td>
+                                <td>LEGANES</td>
                             </tr>
                             <tr>
                                 <td>L25-01-2006</td>
@@ -584,6 +619,7 @@
                                 <td>87</td>
                                 <td>2026-2027</td>
                                 <td>1</td>
+                                <td>LEGANES</td>
                             </tr>
                         </tbody>
                     </table>
@@ -628,8 +664,8 @@
                         </div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label text-white small fw-bold">SEARCH QUERY * (LASTNAME, FIRSTNAME, STUDENT ID, SCHEDTAG)</label>
-                        <input type="text" id="unifiedSearchBox" class="form-control form-control-sm" placeholder="ENTER STUDENT ID, LASTNAME, FIRSTNAME, COURSE OR SCHEDTAG..." oninput="validateSearchForm()" onkeydown="if(event.key==='Enter' && !document.getElementById('applySearchBtn').disabled) executeUnifiedSearch()">
+                        <label class="form-label text-white small fw-bold">SEARCH QUERY * (LASTNAME, FIRSTNAME, STUDENT ID, SCHEDTAG, BRANCH)</label>
+                        <input type="text" id="unifiedSearchBox" class="form-control form-control-sm" placeholder="ENTER STUDENT ID, LASTNAME, FIRSTNAME, COURSE, SCHEDTAG OR BRANCH..." oninput="validateSearchForm()" onkeydown="if(event.key==='Enter' && !document.getElementById('applySearchBtn').disabled) executeUnifiedSearch()">
                     </div>
                     <div class="col-12 mt-3">
                         <button id="applySearchBtn" onclick="executeUnifiedSearch()" class="btn btn-glass-green w-100 py-2" disabled>
@@ -649,10 +685,15 @@
                             RECORDS FOUND: 0
                         </span>
                     </div>
-                    <div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <!-- IN-DASHBOARD BATCH ASSIGN BRANCH CONTROLS -->
+                        <input type="text" id="batchBranchInput" class="form-control form-control-sm" placeholder="BRANCH NAME" style="width: 150px;">
+                        <button id="batchAssignBranchBtn" onclick="assignBranchToSelected()" class="btn btn-glass-blue btn-sm px-3" disabled>
+                            <i class="bi bi-building me-1"></i> UPDATE BRANCH
+                        </button>
                         <!-- DISABLED BY DEFAULT: DELETE BUTTON -->
                         <button id="deleteSelectedBtn" onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3" disabled>
-                            <i class="bi bi-trash me-1"></i> DELETE SELECTED RECORDS
+                            <i class="bi bi-trash me-1"></i> DELETE SELECTED
                         </button>
                     </div>
                 </div>
@@ -665,6 +706,7 @@
                                 <th>STUDENT ID</th>
                                 <th>LASTNAME</th>
                                 <th>FIRSTNAME</th>
+                                <th>BRANCH</th>
                                 <th>SUBJECT</th>
                                 <th>SCHEDTAG</th>
                                 <th>COMPONENT</th>
@@ -673,11 +715,16 @@
                             </tr>
                         </thead>
                         <tbody id="gridTableBody">
-                            <tr><td colspan="9" class="text-secondary p-4">FILL IN ALL CRITERION ABOVE TO ACTIVATE AND EXECUTE SEARCH.</td></tr>
+                            <tr><td colspan="10" class="text-secondary p-4">FILL IN ALL CRITERION ABOVE TO ACTIVATE AND EXECUTE SEARCH.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
+
+        <!-- PANEL: PRINT GRADE SHEET EMBEDDED IFRAME -->
+        <div id="viewPrintGradeSheet" class="content-panel">
+            <iframe src="print_gradesheet.html" class="embedded-iframe"></iframe>
         </div>
 
         <!-- PANEL 3: EMBEDDED IFRAME PANELS -->
@@ -731,8 +778,8 @@ Auth.requireAuth('teacher');
 const teacher = Auth.getUser();
 
 // GITHUB DOWNLOADS CONFIGURATION
-const GITHUB_USERNAME = 'svc1itsection-user'; // REPLACE WITH YOUR GITHUB USERNAME
-const GITHUB_REPO = 'svcportal';     // REPLACE WITH YOUR GITHUB REPO NAME
+const GITHUB_USERNAME = 'svc1itsection-user'; 
+const GITHUB_REPO = 'svcportal';     
 const DOWNLOADS_FOLDER = 'Downloads';
 
 async function fetchGitHubDownloads() {
@@ -809,10 +856,17 @@ function handleLogout() {
     }, 300);
 }
 
+// AUTOMATIC UPPERCASE ENFORCEMENT ON ALL TEXT INPUTS (DYNAMIC & EXISTING)
 function autoCapitalizeInputs() {
-    document.querySelectorAll('input[type="text"]').forEach(input => {
-        input.style.textTransform = 'uppercase';
-        input.addEventListener('input', function() { this.value = this.value.toUpperCase(); });
+    document.addEventListener('input', function(e) {
+        if (e.target && (e.target.tagName === 'INPUT' && e.target.type === 'text')) {
+            const start = e.target.selectionStart;
+            const end = e.target.selectionEnd;
+            e.target.value = e.target.value.toUpperCase();
+            if (start !== null && end !== null) {
+                e.target.setSelectionRange(start, end);
+            }
+        }
     });
 }
 
@@ -866,7 +920,6 @@ function validateSearchForm() {
 
     const applyBtn = document.getElementById('applySearchBtn');
     
-    // Requires ALL 5 fields to be filled before enabling
     if (sy && sem && sub && comp && query) {
         applyBtn.disabled = false;
     } else {
@@ -874,12 +927,16 @@ function validateSearchForm() {
     }
 }
 
-// CHECKBOX LISTENER TO ENABLE/DISABLE DELETE SELECTED BUTTON
+// CHECKBOX LISTENER TO ENABLE/DISABLE DELETE AND BATCH UPDATE BUTTONS
 function updateDeleteButtonState() {
     const checkedCount = document.querySelectorAll('.record-checkbox:checked').length;
     const deleteBtn = document.getElementById('deleteSelectedBtn');
+    const batchBranchBtn = document.getElementById('batchAssignBranchBtn');
     if (deleteBtn) {
         deleteBtn.disabled = (checkedCount === 0);
+    }
+    if (batchBranchBtn) {
+        batchBranchBtn.disabled = (checkedCount === 0);
     }
 }
 
@@ -1007,10 +1064,9 @@ async function executeUnifiedSearch() {
         }
 
         if (query) {
-            dbQuery = dbQuery.or(`lastname.ilike.%${query}%,firstname.ilike.%${query}%,studentid.ilike.%${query}%,schedtag.ilike.%${query}%,course.ilike.%${query}%`);
+            dbQuery = dbQuery.or(`lastname.ilike.%${query}%,firstname.ilike.%${query}%,studentid.ilike.%${query}%,schedtag.ilike.%${query}%,course.ilike.%${query}%,schoolbranch.ilike.%${query}%`);
         }
 
-        // Apply multi-level order if ALL COMPONENTS is chosen
         if (!comp || comp === 'ALL') {
             dbQuery = dbQuery
                 .order('lastname', { ascending: true })
@@ -1035,7 +1091,6 @@ async function executeUnifiedSearch() {
 
         let results = data || [];
 
-        // Flexible Semester fallback filter
         if (sem) {
             results = results.filter(r => {
                 return String(r.semester) === String(sem) || 
@@ -1045,7 +1100,6 @@ async function executeUnifiedSearch() {
             });
         }
 
-        // Strict client-side sorting guarantee for ALL COMPONENTS
         if (!comp || comp === 'ALL') {
             results.sort((a, b) => {
                 const compLast = (a.lastname || '').localeCompare(b.lastname || '');
@@ -1087,12 +1141,11 @@ function renderRecordsGrid(records) {
 
     const totalCount = records ? records.length : 0;
 
-    // Display total records found badge
     badge.innerText = `RECORDS FOUND: ${totalCount}`;
     badge.style.display = 'inline-block';
 
     if (!records || records.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-secondary p-4">NO RECORDS MATCHED THE SPECIFIED CRITERIA DIRECTLY IN DATABASE.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-secondary p-4">NO RECORDS MATCHED THE SPECIFIED CRITERIA DIRECTLY IN DATABASE.</td></tr>`;
         updateDeleteButtonState();
         return;
     }
@@ -1105,6 +1158,7 @@ function renderRecordsGrid(records) {
                 <td class="fw-bold text-dark">${r.studentid || ''}</td>
                 <td class="text-dark fw-bold">${r.lastname || ''}</td>
                 <td class="text-dark">${r.firstname || ''}</td>
+                <td class="text-dark small fw-bold">${r.schoolbranch || '<span class="text-muted">-</span>'}</td>
                 <td><span class="badge badge-blue px-2 py-1">${r.subjects || ''}</span></td>
                 <td class="text-dark fw-bold">${r.schedtag || ''}</td>
                 <td class="text-primary fw-bold">${r.component || ''}</td>
@@ -1149,6 +1203,7 @@ async function openEditRecordModal(studentId, subject) {
         document.getElementById('editCourse').value = sample.course || '';
         document.getElementById('editSubject').value = subject;
         document.getElementById('editSchedtag').value = sample.schedtag || '';
+        document.getElementById('editSchoolBranch').value = sample.schoolbranch || '';
 
         const compContainer = document.getElementById('editDynamicComponentsContainer');
         compContainer.innerHTML = '';
@@ -1183,7 +1238,7 @@ async function openEditRecordModal(studentId, subject) {
     }
 }
 
-// EDIT SUBMIT HANDLER - GUARANTEED LIVE RE-FETCH AND SEARCH
+// EDIT SUBMIT HANDLER
 document.getElementById('editRecordForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -1195,6 +1250,7 @@ document.getElementById('editRecordForm').addEventListener('submit', async (e) =
     const nameStr = (document.getElementById('editStudentName').value || '').trim();
     const newCourse = (document.getElementById('editCourse').value || '').trim().toUpperCase();
     const newSchedtag = (document.getElementById('editSchedtag').value || '').trim().toUpperCase();
+    const newBranch = (document.getElementById('editSchoolBranch').value || '').trim().toUpperCase();
 
     let newLast = '', newFirst = '';
     if (nameStr.includes(',')) {
@@ -1209,7 +1265,6 @@ document.getElementById('editRecordForm').addEventListener('submit', async (e) =
 
     showLoading(true, "SAVING CHANGES TO DATABASE...");
 
-    // Fetch existing records for meta fields
     const { data: targetRecords } = await _supabase
         .from('tblrecords')
         .select('*')
@@ -1245,7 +1300,8 @@ document.getElementById('editRecordForm').addEventListener('submit', async (e) =
             component: compName,
             result: newResult,
             schoolyear: existingCompRec ? existingCompRec.schoolyear : (targetRecords?.[0]?.schoolyear || '2025-2026'),
-            semester: existingCompRec ? existingCompRec.semester : (targetRecords?.[0]?.semester || '1')
+            semester: existingCompRec ? existingCompRec.semester : (targetRecords?.[0]?.semester || '1'),
+            schoolbranch: newBranch || null
         };
 
         const { data: updateData, error: updateError } = await _supabase
@@ -1318,6 +1374,52 @@ async function deleteSingleRow(stuId, sub, comp) {
 function toggleSelectAll(master) {
     document.querySelectorAll('.record-checkbox').forEach(cb => cb.checked = master.checked);
     updateDeleteButtonState();
+}
+
+// IN-DASHBOARD BATCH ASSIGN SCHOOL BRANCH FUNCTION (TARGETS ALL STUDENT COMPONENTS)
+async function assignBranchToSelected() {
+    const checked = document.querySelectorAll('.record-checkbox:checked');
+    const branchVal = (document.getElementById('batchBranchInput').value || '').trim().toUpperCase();
+
+    if (checked.length === 0) {
+        showAlert('PLEASE SELECT AT LEAST ONE RECORD TO UPDATE.');
+        return;
+    }
+
+    if (!branchVal) {
+        showAlert('PLEASE ENTER A SCHOOL BRANCH NAME IN THE INPUT FIELD.');
+        return;
+    }
+
+    showLoading(true, "UPDATING SCHOOL BRANCH FOR SELECTED STUDENTS...");
+
+    // Collect unique Student ID and Subject combinations from selected checkboxes
+    const studentSubjectPairs = new Set();
+    checked.forEach(cb => {
+        const parts = cb.value.split('|');
+        const stuId = parts[0];
+        const sub = parts[1];
+        studentSubjectPairs.add(`${stuId}|${sub}`);
+    });
+
+    let updatedCount = 0;
+
+    for (let pair of studentSubjectPairs) {
+        const [stuId, sub] = pair.split('|');
+
+        // Update ALL component records for this student and subject
+        const { error } = await _supabase.from('tblrecords')
+            .update({ schoolbranch: branchVal })
+            .eq('teacherid', teacher.teacherid)
+            .eq('studentid', stuId)
+            .eq('subjects', sub);
+
+        if (!error) updatedCount++;
+    }
+
+    showLoading(false);
+    showAlert(`SUCCESSFULLY UPDATED SCHOOL BRANCH TO "${branchVal}" FOR ALL RECORDS OF ${updatedCount} STUDENT(S).`);
+    await executeUnifiedSearch();
 }
 
 async function deleteSelectedRecords() {
@@ -1408,6 +1510,7 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
             const stuId = row[0].toUpperCase();
             const subName = row[6].toUpperCase();
             const compName = row[7].toUpperCase();
+            const branchName = row[11] ? row[11].toUpperCase() : null;
 
             const payload = {
                 studentid: stuId,
@@ -1420,7 +1523,8 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
                 component: compName,
                 result: row[8].toUpperCase(),
                 schoolyear: row[9].toUpperCase(),
-                semester: row[10].toUpperCase()
+                semester: row[10].toUpperCase(),
+                schoolbranch: branchName
             };
 
             const { data: updateData, error: updateError } = await _supabase
@@ -1452,7 +1556,7 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
     };
 
     if (isExcel) {
-        reader.readAsArrayBuffer(file);
+        reader.readAsBuffer(file);
     } else {
         reader.readAsText(file, 'UTF-8');
     }
@@ -1460,8 +1564,8 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
 
 function downloadExcelTemplate() {
     const templateData = [
-        ["studentid", "teacherid", "lastname", "firstname", "course", "schedtag", "subjects", "component", "result", "schoolyear", "semester"],
-        ["L25-01-2006", "2008-003", "PEREZ", "CHRISTINA", "BSA", "BSA2-A", "COMP1", "PRELIM QUIZ 1", "22/25", "2026-2027", "1"]
+        ["studentid", "teacherid", "lastname", "firstname", "course", "schedtag", "subjects", "component", "result", "schoolyear", "semester", "schoolbranch"],
+        ["L25-01-2006", "2008-003", "PEREZ", "CHRISTINA", "BSA", "BSA2-A", "COMP1", "PRELIM QUIZ 1", "22/25", "2026-2027", "1", "LEGANES"]
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(templateData);
