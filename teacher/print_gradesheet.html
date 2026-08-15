@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Grade Sheet - SVC Teacher Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/supabase-config.js"></script>
+    <style>
+        :root {
+            --primary-blue: #0ea5e9;
+            --dark-navy: #0f172a;
+        }
+
+        body {
+            background-color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            padding: 1.5rem;
+        }
+
+        .controls-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+            margin-bottom: 2rem;
+        }
+
+        .form-select, .form-control {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .btn-action {
+            font-weight: 700;
+            font-size: 0.82rem;
+            padding: 0.45rem 1rem;
+            border-radius: 6px;
+            transition: all 0.2s ease-in-out;
+            white-space: nowrap;
+        }
+
+        .btn-action:disabled,
+        .btn-action[disabled] {
+            background-color: #94a3b8 !important;
+            border-color: #94a3b8 !important;
+            color: #ffffff !important;
+            opacity: 0.75 !important;
+            cursor: not-allowed !important;
+            box-shadow: none !important;
+        }
+
+        .btn-show-sheet:not(:disabled) {
+            background-color: #16a34a !important;
+            border-color: #16a34a !important;
+            color: #ffffff !important;
+        }
+
+        .btn-show-sheet:not(:disabled):hover {
+            background-color: #15803d !important;
+            border-color: #15803d !important;
+        }
+
+        .btn-print-pdf:not(:disabled) {
+            background-color: #0ea5e9 !important;
+            border-color: #0ea5e9 !important;
+            color: #ffffff !important;
+        }
+
+        .btn-print-pdf:not(:disabled):hover {
+            background-color: #0284c7 !important;
+            border-color: #0284c7 !important;
+        }
+
+        .printable-sheet {
+            background: #ffffff;
+            width: 8.5in;
+            min-height: 13in;
+            margin: 0 auto;
+            padding: 0.6in 0.5in;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border: 1px solid #cbd5e1;
+            position: relative;
+        }
+
+        .sheet-header-banner {
+            width: 80%;
+            max-height: 80px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .header-logo {
+            width: 70px;
+            height: 70px;
+            object-fit: contain;
+        }
+
+        .form-id-badge {
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-align: right;
+            color: #000000;
+            line-height: 1.2;
+            white-space: nowrap; /* Prevents text from wrapping into multiple lines */
+        }
+
+        .meta-table {
+            width: 100%;
+            font-size: 0.82rem;
+            font-weight: 700;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .meta-table td {
+            padding: 2px 4px;
+            vertical-align: top;
+        }
+
+        .meta-label {
+            width: 140px;
+            color: #334155;
+        }
+
+        .meta-value {
+            color: #000000;
+            border-bottom: 1px solid #000000;
+        }
+
+        .sheet-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+
+        .sheet-table th, .sheet-table td {
+            border: 1px solid #000000;
+            padding: 4px 6px;
+            text-align: center;
+        }
+
+        .sheet-table th {
+            background-color: #f1f5f9;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .sheet-table td.student-name {
+            text-align: left;
+            font-weight: 700;
+            padding-left: 8px;
+        }
+
+        .certification-text {
+            font-size: 0.72rem;
+            line-height: 1.3;
+            text-align: justify;
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+
+        .signature-section {
+            margin-top: 2rem;
+        }
+
+        .signature-line {
+    width: 250px;
+    border-bottom: 1px solid #000000; /* Line is now BELOW the teacher name */
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding-bottom: 2px; /* Space between teacher name and the line */
+    margin-bottom: 4px;  /* Space between the line and subtext */
+}
+
+        .footer-contacts {
+            font-size: 0.68rem;
+            color: #334155;
+            line-height: 1.2;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 8px;
+            margin-top: 1.5rem;
+        }
+
+        /* --- PRINT MEDIA STYLES --- */
+        @media print {
+            body {
+                background: none !important;
+                padding: 0 !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .printable-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            /* Repeat table headers on multi-page splits */
+            .sheet-table {
+                page-break-inside: auto;
+            }
+            
+            .sheet-table tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+
+            .sheet-table thead {
+                display: table-header-group;
+            }
+
+            .signature-section, .certification-text, .footer-contacts {
+                page-break-inside: avoid;
+            }
+
+            /* Strict 8.5 x 13 Inch Philippine Standard Long Paper Size */
+            @page {
+                size: 8.5in 13in portrait;
+                margin: 12mm 12mm 20mm 12mm;
+
+                @bottom-center {
+                    content: "Page " counter(page) " of " counter(pages);
+                    font-size: 8pt;
+                    font-weight: 700;
+                    color: #000000;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                }
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CASCADING FILTER CONTROLS BAR (Screen Only) -->
+    <div class="controls-card no-print">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-2 border-bottom">
+            <h6 class="fw-bold m-0 text-primary d-flex align-items-center">
+                <i class="bi bi-sliders me-2 fs-5"></i>GRADE SHEET SELECTION & GENERATOR
+            </h6>
+
+            <div class="d-flex align-items-center gap-2">
+                <button onclick="fetchAndShowGradeSheet()" class="btn btn-action btn-show-sheet" id="btnShowSheet" disabled>
+                    <i class="bi bi-eye me-1"></i> SHOW GRADE SHEET
+                </button>
+                <button onclick="triggerPrint()" class="btn btn-action btn-print-pdf" id="printBtn" disabled>
+                    <i class="bi bi-printer me-1"></i> PRINT / SAVE PDF
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-2">
+            <div class="col-md-2">
+                <label class="form-label small fw-bold mb-1">SCHOOL YEAR *</label>
+                <select id="filterSy" class="form-select form-select-sm" onchange="onSyChange()" disabled>
+                    <option value="">SELECT SCHOOL YEAR</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label small fw-bold mb-1">SEMESTER *</label>
+                <select id="filterSem" class="form-select form-select-sm" onchange="onSemChange()" disabled>
+                    <option value="">SELECT SEMESTER</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label small fw-bold mb-1">BRANCH *</label>
+                <select id="filterBranch" class="form-select form-select-sm" onchange="onBranchChange()" disabled>
+                    <option value="">SELECT BRANCH</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label small fw-bold mb-1">SUBJECT *</label>
+                <select id="filterSubject" class="form-select form-select-sm" onchange="onSubjectChange()" disabled>
+                    <option value="">SELECT SUBJECT</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label small fw-bold mb-1">SCHEDTAG (OPTIONAL)</label>
+                <select id="filterSchedtag" class="form-select form-select-sm" disabled>
+                    <option value="">ALL SCHEDTAGS</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINTABLE SHEET DOCUMENT -->
+    <div class="printable-sheet" id="printableSheet">
+        <!-- HEADER -->
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <!-- LOGO (LEFT) -->
+            <img src="../logo.png" class="header-logo" alt="Logo" onerror="this.style.visibility='hidden'">
+
+            <!-- CENTER IMAGE HEADER BANNER -->
+            <div class="text-center flex-grow-1 px-3">
+                <img src="../Universal_Header.jpg" class="sheet-header-banner" alt="ST. VINCENT COLLEGE • LEGANES • IVISAN • POTOTAN •">
+            </div>
+
+            <!-- FORM IDENTIFIER (RIGHT) -->
+            <!-- FORM IDENTIFIER (RIGHT) -->
+<div class="form-id-badge">
+    OFFICE OF THE REGISTRAR<br>
+    OFFICIAL LIST<br>
+    <span class="fs-6 fw-black" style="color: #dc2626;">R - FORM 16 - A1</span>
+</div>
+        </div>
+
+        <hr class="my-2" style="border-top: 2px solid #000000; opacity: 1;">
+
+        <!-- METADATA GRID -->
+        <table class="meta-table">
+            <tr>
+                <td class="meta-label">Subject:</td>
+                <td class="meta-value" id="docSubject">-</td>
+                <td class="meta-label" style="padding-left: 20px;">Semester :</td>
+                <td class="meta-value" id="docSemester">-</td>
+            </tr>
+            <tr>
+                <td class="meta-label">Course, Yr., & Sec:</td>
+                <td class="meta-value" id="docSchedtag">-</td>
+                <td class="meta-label" style="padding-left: 20px;">School Year :</td>
+                <td class="meta-value" id="docSchoolYear">-</td>
+            </tr>
+            <tr>
+                <td class="meta-label">Instructor:</td>
+                <td class="meta-value" id="docInstructor">-</td>
+                <td class="meta-label" style="padding-left: 20px;">Submitted Date :</td>
+                <td class="meta-value" id="docSubmittedDate">-</td>
+            </tr>
+        </table>
+
+        <!-- GRADES TABLE -->
+        <table class="sheet-table">
+            <thead>
+                <tr>
+                    <th style="width: 5%;">No.</th>
+                    <th style="width: 45%;">Student Name</th>
+                    <th style="width: 8%;">Q1</th>
+                    <th style="width: 8%;">Q2</th>
+                    <th style="width: 8%;">Q3</th>
+                    <th style="width: 8%;">Q4</th>
+                    <th style="width: 9%;">Q-Ave</th>
+                    <th style="width: 9%;">ME</th>
+                    <th style="width: 10%;">Final Grade</th>
+                </tr>
+            </thead>
+            <tbody id="sheetTableBody">
+                <tr>
+                    <td colspan="9" class="py-4 text-muted">PLEASE SELECT REQUIRED CRITERIA ABOVE AND CLICK "SHOW GRADE SHEET".</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- END OF LIST NOTIFICATION -->
+        <div class="text-center fw-bold fs-7 my-2" id="endOfListNotice" style="display: none;">
+            ***** END OF LIST(S) *****
+        </div>
+
+        <!-- CERTIFICATION TEXT -->
+        <div class="certification-text">
+            The undersigned hereby certify that the above names are officially enrolled in this subject and their corresponding grades are based in their actual academic performance. I further certify my knowledge and understanding of my sole accountability with all the data in this document.
+        </div>
+
+        <!-- SIGNATURE SECTION -->
+<div class="d-flex justify-content-between align-items-end signature-section">
+    <div>
+        <!-- Teacher Name with border-bottom line underneath -->
+        <div class="signature-line" id="docInstructorSignature">-</div>
+        <!-- Subtext below the line -->
+        <div class="text-center fw-bold small" style="width: 250px;">Signature over Printed Name</div>
+    </div>
+</div>
+
+        <!-- FOOTER CONTACTS -->
+        <div class="footer-contacts">
+            LEGANES PLDT. No.: (033) 328-1889; GLOBE No.: (033) 501-1997<br>
+            IVISAN PLDT. No.: (036) 651-5101<br>
+            Pototan GLOBE. No.: (033) 502-2748<br>
+            Email Address: svcst_leganes@yahoo.com
+        </div>
+    </div>
+
+    <script>
+        let currentTeacher = { teacherid: '', firstname: '', lastname: '' };
+        let teacherDistinctRecords = [];
+        let loadedStudentCount = 0;
+
+        function extractGrade(componentsMap, keywords) {
+            const compKeys = Object.keys(componentsMap);
+            for (let kw of keywords) {
+                if (componentsMap[kw] !== undefined && componentsMap[kw] !== null && String(componentsMap[kw]).trim() !== '') {
+                    return String(componentsMap[kw]).trim();
+                }
+
+                const matchingKey = compKeys.find(k => k.includes(kw));
+                if (matchingKey && componentsMap[matchingKey] !== undefined && componentsMap[matchingKey] !== null) {
+                    const val = String(componentsMap[matchingKey]).trim();
+                    if (val !== '') return val;
+                }
+            }
+            return '-';
+        }
+
+        function formatSchedtagHeader(schedtagList) {
+            if (!schedtagList || schedtagList.length === 0) return '-';
+            if (schedtagList.length === 1) return schedtagList[0];
+
+            const groups = {};
+            schedtagList.forEach(st => {
+                const lastDash = st.lastIndexOf('-');
+                if (lastDash !== -1) {
+                    const prefix = st.substring(0, lastDash).trim();
+                    const section = st.substring(lastDash + 1).trim();
+                    if (!groups[prefix]) groups[prefix] = [];
+                    if (section && !groups[prefix].includes(section)) {
+                        groups[prefix].push(section);
+                    }
+                } else {
+                    if (!groups[st]) groups[st] = [];
+                }
+            });
+
+            const formattedParts = Object.keys(groups).map(prefix => {
+                const sections = groups[prefix];
+                if (sections.length > 0) {
+                    return `${prefix}-${sections.join(',')}`;
+                }
+                return prefix;
+            });
+
+            return formattedParts.join(' / ');
+        }
+
+        async function initPage() {
+            try {
+                if (typeof Auth !== 'undefined' && typeof Auth.requireAuth === 'function') {
+                    Auth.requireAuth('teacher');
+                }
+
+                currentTeacher = (typeof Auth !== 'undefined' && typeof Auth.getUser === 'function')
+                    ? Auth.getUser() 
+                    : { teacherid: '', firstname: '', lastname: '' };
+
+                const teacherIdDisplay = String(currentTeacher.teacherid || '').trim();
+
+                const today = new Date();
+                document.getElementById('docSubmittedDate').innerText = today.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+
+                const teacherFullName = `${(currentTeacher.firstname || '').toUpperCase()} ${(currentTeacher.lastname || '').toUpperCase()}`.trim() || 'INSTRUCTOR NAME';
+                document.getElementById('docInstructor').innerText = teacherFullName;
+                document.getElementById('docInstructorSignature').innerText = teacherFullName;
+
+                if (typeof _supabase === 'undefined') {
+                    console.error('_supabase client is missing from supabase-config.js');
+                    return;
+                }
+
+                if (!teacherIdDisplay) {
+                    alert('Error: Teacher ID is missing from session. Please re-login.');
+                    return;
+                }
+
+                const { data, error } = await _supabase
+                    .from('tblrecords')
+                    .select('schoolyear, semester, schoolbranch, subjects, schedtag')
+                    .eq('teacherid', teacherIdDisplay)
+                    .range(0, 9999);
+
+                if (error) {
+                    console.error('Error fetching criterion options:', error);
+                    return;
+                }
+
+                teacherDistinctRecords = data || [];
+
+                if (teacherDistinctRecords.length === 0) {
+                    document.getElementById('filterSy').innerHTML = '<option value="">NO RECORDS FOUND FOR THIS TEACHER ID</option>';
+                    return;
+                }
+
+                populateSyDropdown();
+
+            } catch (err) {
+                console.error('Initialization error:', err);
+            }
+        }
+
+        // --- CASCADING DROPDOWN HANDLERS ---
+        function populateSyDropdown() {
+            const sySelect = document.getElementById('filterSy');
+            sySelect.innerHTML = '<option value="">SELECT SCHOOL YEAR</option>';
+            resetSubsequentDropdowns(['filterSem', 'filterBranch', 'filterSubject', 'filterSchedtag']);
+
+            const schoolYears = new Set();
+            teacherDistinctRecords.forEach(r => {
+                if (r.schoolyear) schoolYears.add(String(r.schoolyear).trim().toUpperCase());
+            });
+
+            const syList = Array.from(schoolYears).sort().reverse();
+
+            if (syList.length > 0) {
+                sySelect.disabled = false;
+                syList.forEach(sy => {
+                    sySelect.innerHTML += `<option value="${sy}">${sy}</option>`;
+                });
+            }
+        }
+
+        function onSyChange() {
+            const sy = document.getElementById('filterSy').value;
+            const semSelect = document.getElementById('filterSem');
+            semSelect.innerHTML = '<option value="">SELECT SEMESTER</option>';
+            resetSubsequentDropdowns(['filterBranch', 'filterSubject', 'filterSchedtag']);
+
+            if (!sy) return;
+
+            const matching = teacherDistinctRecords.filter(r => String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase());
+            const semesters = new Set();
+            matching.forEach(r => {
+                if (r.semester !== undefined && r.semester !== null) semesters.add(String(r.semester).trim().toUpperCase());
+            });
+
+            const semList = Array.from(semesters).sort();
+
+            if (semList.length > 0) {
+                semSelect.disabled = false;
+                semList.forEach(sem => {
+                    const label = sem === '1' ? '1ST SEMESTER' : (sem === '2' ? '2ND SEMESTER' : (sem === '3' ? 'SUMMER' : `SEMESTER ${sem}`));
+                    semSelect.innerHTML += `<option value="${sem}">${label}</option>`;
+                });
+            }
+        }
+
+        function onSemChange() {
+            const sy = document.getElementById('filterSy').value;
+            const sem = document.getElementById('filterSem').value;
+            const branchSelect = document.getElementById('filterBranch');
+            branchSelect.innerHTML = '<option value="">SELECT BRANCH</option>';
+            resetSubsequentDropdowns(['filterSubject', 'filterSchedtag']);
+
+            if (!sem) return;
+
+            const matching = teacherDistinctRecords.filter(r => 
+                String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase() && 
+                String(r.semester || '').trim().toUpperCase() === String(sem).trim().toUpperCase()
+            );
+
+            const branches = new Set();
+            matching.forEach(r => {
+                if (r.schoolbranch) branches.add(String(r.schoolbranch).trim().toUpperCase());
+            });
+
+            const branchList = Array.from(branches).sort();
+
+            if (branchList.length > 0) {
+                branchSelect.disabled = false;
+                branchList.forEach(b => {
+                    branchSelect.innerHTML += `<option value="${b}">${b}</option>`;
+                });
+            }
+        }
+
+        function onBranchChange() {
+            const sy = document.getElementById('filterSy').value;
+            const sem = document.getElementById('filterSem').value;
+            const branch = document.getElementById('filterBranch').value;
+            const subjectSelect = document.getElementById('filterSubject');
+            subjectSelect.innerHTML = '<option value="">SELECT SUBJECT</option>';
+            resetSubsequentDropdowns(['filterSchedtag']);
+
+            if (!branch) return;
+
+            const matching = teacherDistinctRecords.filter(r => 
+                String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase() && 
+                String(r.semester || '').trim().toUpperCase() === String(sem).trim().toUpperCase() &&
+                String(r.schoolbranch || '').trim().toUpperCase() === String(branch).trim().toUpperCase()
+            );
+
+            const subjects = new Set();
+            matching.forEach(r => {
+                if (r.subjects) subjects.add(String(r.subjects).trim().toUpperCase());
+            });
+
+            const subjectList = Array.from(subjects).sort();
+
+            if (subjectList.length > 0) {
+                subjectSelect.disabled = false;
+                subjectList.forEach(s => {
+                    subjectSelect.innerHTML += `<option value="${s}">${s}</option>`;
+                });
+            }
+        }
+
+        function onSubjectChange() {
+            const sy = document.getElementById('filterSy').value;
+            const sem = document.getElementById('filterSem').value;
+            const branch = document.getElementById('filterBranch').value;
+            const subject = document.getElementById('filterSubject').value;
+            const schedtagSelect = document.getElementById('filterSchedtag');
+            
+            schedtagSelect.innerHTML = '<option value="">ALL SCHEDTAGS (OPTIONAL)</option>';
+
+            if (!subject) {
+                resetSubsequentDropdowns(['filterSchedtag']);
+                return;
+            }
+
+            document.getElementById('btnShowSheet').disabled = false;
+
+            const matching = teacherDistinctRecords.filter(r => 
+                String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase() && 
+                String(r.semester || '').trim().toUpperCase() === String(sem).trim().toUpperCase() &&
+                String(r.schoolbranch || '').trim().toUpperCase() === String(branch).trim().toUpperCase() &&
+                String(r.subjects || '').trim().toUpperCase() === String(subject).trim().toUpperCase()
+            );
+
+            const schedtags = new Set();
+            matching.forEach(r => {
+                if (r.schedtag) schedtags.add(String(r.schedtag).trim().toUpperCase());
+            });
+
+            const schedtagList = Array.from(schedtags).sort();
+
+            if (schedtagList.length > 0) {
+                schedtagSelect.disabled = false;
+                schedtagList.forEach(st => {
+                    schedtagSelect.innerHTML += `<option value="${st}">${st}</option>`;
+                });
+            }
+        }
+
+        function resetSubsequentDropdowns(ids) {
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (id === 'filterSchedtag') {
+                    el.innerHTML = '<option value="">ALL SCHEDTAGS (OPTIONAL)</option>';
+                } else {
+                    el.innerHTML = `<option value="">SELECT ${id.replace('filter', '').toUpperCase()}</option>`;
+                }
+                el.disabled = true;
+            });
+
+            loadedStudentCount = 0;
+            document.getElementById('btnShowSheet').disabled = true;
+            document.getElementById('printBtn').disabled = true;
+            document.getElementById('endOfListNotice').style.display = 'none';
+            document.getElementById('sheetTableBody').innerHTML = `
+                <tr><td colspan="9" class="py-4 text-muted">PLEASE SELECT REQUIRED CRITERIA ABOVE AND CLICK "SHOW GRADE SHEET".</td></tr>
+            `;
+        }
+
+        async function fetchAndShowGradeSheet() {
+            const sy = document.getElementById('filterSy').value;
+            const sem = document.getElementById('filterSem').value;
+            const branch = document.getElementById('filterBranch').value;
+            const subject = document.getElementById('filterSubject').value;
+            const schedtag = document.getElementById('filterSchedtag').value;
+
+            if (!sy || !sem || !branch || !subject) {
+                alert('Important criteria (School Year, Semester, Branch, and Subject) must be selected first!');
+                return;
+            }
+
+            const tbody = document.getElementById('sheetTableBody');
+            tbody.innerHTML = `<tr><td colspan="9" class="py-4 text-primary fw-bold"><i class="bi bi-arrow-repeat spin me-2"></i>LOADING RECORDS DIRECTLY FROM DATABASE...</td></tr>`;
+            document.getElementById('printBtn').disabled = true;
+            loadedStudentCount = 0;
+
+            let query = _supabase
+                .from('tblrecords')
+                .select('*')
+                .eq('teacherid', currentTeacher.teacherid)
+                .eq('schoolyear', sy)
+                .eq('semester', sem)
+                .ilike('schoolbranch', branch)
+                .ilike('subjects', subject);
+
+            if (schedtag) {
+                query = query.ilike('schedtag', schedtag);
+            }
+
+            const { data, error } = await query.range(0, 9999);
+
+            if (error) {
+                console.error('Error fetching sheet records:', error);
+                tbody.innerHTML = `<tr><td colspan="9" class="py-4 text-danger fw-bold">ERROR LOADING DATA FROM DATABASE.</td></tr>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="py-4 text-danger fw-bold">NO RECORDS FOUND IN DATABASE FOR THIS SELECTION.</td></tr>`;
+                document.getElementById('endOfListNotice').style.display = 'none';
+                return;
+            }
+
+            const uniqueSchedtags = Array.from(
+                new Set(data.map(r => String(r.schedtag || '').trim().toUpperCase()).filter(Boolean))
+            ).sort();
+
+            const semText = sem === '1' ? '1st SEMESTER' : (sem === '2' ? '2nd SEMESTER' : 'SUMMER');
+            document.getElementById('docSubject').innerText = `${subject} (${branch})`;
+            document.getElementById('docSemester').innerText = semText;
+            document.getElementById('docSchedtag').innerText = formatSchedtagHeader(uniqueSchedtags);
+            document.getElementById('docSchoolYear').innerText = sy;
+
+            const studentsMap = {};
+            data.forEach(r => {
+                const sId = String(r.studentid || '').trim();
+                if (!sId) return;
+
+                if (!studentsMap[sId]) {
+                    studentsMap[sId] = {
+                        schedtag: String(r.schedtag || '').trim().toUpperCase(),
+                        lastname: String(r.lastname || '').trim().toUpperCase(),
+                        firstname: String(r.firstname || '').trim().toUpperCase(),
+                        fullName: `${(r.lastname || '').trim()}, ${(r.firstname || '').trim()}`,
+                        components: {}
+                    };
+                }
+                
+                const compKey = String(r.component || '').trim().toUpperCase();
+                studentsMap[sId].components[compKey] = r.result;
+            });
+
+            const studentList = Object.values(studentsMap).sort((a, b) => {
+                const schedtagCompare = a.schedtag.localeCompare(b.schedtag);
+                if (schedtagCompare !== 0) return schedtagCompare;
+
+                const lastnameCompare = a.lastname.localeCompare(b.lastname);
+                if (lastnameCompare !== 0) return lastnameCompare;
+
+                return a.firstname.localeCompare(b.firstname);
+            });
+
+            tbody.innerHTML = '';
+            loadedStudentCount = studentList.length;
+
+            if (loadedStudentCount === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="py-4 text-danger fw-bold">NO VALID STUDENT RECORDS TO DISPLAY.</td></tr>`;
+                return;
+            }
+
+            studentList.forEach((stu, idx) => {
+                const comps = stu.components;
+
+                const q1 = extractGrade(comps, ['PRELIM QUIZ 1', 'QUIZ 1', 'QUIZ #1', 'QUIZ1', 'Q1', 'Q-1']);
+                const q2 = extractGrade(comps, ['PRELIM QUIZ 2', 'QUIZ 2', 'QUIZ #2', 'QUIZ2', 'Q2', 'Q-2']);
+                const q3 = extractGrade(comps, ['PRELIM QUIZ 3', 'QUIZ 3', 'QUIZ #3', 'QUIZ3', 'Q3', 'Q-3']);
+                const q4 = extractGrade(comps, ['PRELIM QUIZ 4', 'QUIZ 4', 'QUIZ #4', 'QUIZ4', 'Q4', 'Q-4']);
+                const qAve = extractGrade(comps, ['PRELIM QUIZ GRADE', 'QUIZ AVE', 'QUIZ AVERAGE', 'Q-AVE', 'Q AVE', 'QUIZ GRADE']);
+                const me = extractGrade(comps, ['PRELIM EXAMINATION GRADE', 'MAJOR EXAM', 'MIDTERM EXAM', 'PRELIM EXAM', 'EXAM', 'ME']);
+                const finalGrade = extractGrade(comps, ['PRELIM GRADE', 'FINAL GRADE', 'REMARKS', 'GRADE']);
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td class="student-name">${stu.fullName}</td>
+                        <td>${q1}</td>
+                        <td>${q2}</td>
+                        <td>${q3}</td>
+                        <td>${q4}</td>
+                        <td>${qAve}</td>
+                        <td>${me}</td>
+                        <td class="fw-bold">${finalGrade}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('endOfListNotice').style.display = 'block';
+            document.getElementById('printBtn').disabled = false;
+        }
+
+        function triggerPrint() {
+            if (loadedStudentCount === 0 || document.getElementById('printBtn').disabled) {
+                alert('Cannot print/save PDF: No student grade results available in the table.');
+                return;
+            }
+            window.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>
