@@ -442,20 +442,29 @@ document.getElementById('teacherLoginForm').addEventListener('submit', async (e)
     window.location.href = 'teacher/dashboard.html';
 });
 
+// SECURED ADMIN LOGIN: Queries database instead of checking hardcoded credentials
 document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     showLoading(true, "LOGGING IN AS SUPER ADMIN...");
     const user = document.getElementById('adminUser').value.trim().toUpperCase();
     const pass = document.getElementById('adminPass').value;
 
-    if (user === 'ADMIN' && pass === ':-)') {
-        showLoading(false);
-        Auth.setUser({ username: user, role: 'admin' }, 'admin');
-        window.location.href = 'admin/dashboard.html';
-    } else {
-        showLoading(false);
+    const { data, error } = await _supabase
+        .from('tbladminuser')
+        .select('*')
+        .eq('username', user)
+        .eq('password', pass)
+        .maybeSingle();
+
+    showLoading(false);
+
+    if (error || !data) {
         showAlert('INVALID ADMIN CREDENTIALS.');
+        return;
     }
+
+    Auth.setUser(data, 'admin');
+    window.location.href = 'admin/dashboard.html';
 });
 
 document.addEventListener("DOMContentLoaded", () => {
