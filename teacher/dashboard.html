@@ -171,8 +171,16 @@
             border: 1px solid rgba(255, 255, 255, 0.5); 
             color: #ffffff; font-weight: 700; border-radius: 10px;
             box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+            transition: all 0.2s ease;
         }
-        .btn-glass-red:hover { color: #ffffff; opacity: 0.95; }
+        .btn-glass-red:hover:not(:disabled) { color: #ffffff; opacity: 0.95; }
+        .btn-glass-red:disabled {
+            background: #94a3b8 !important; 
+            border-color: #cbd5e1 !important; 
+            box-shadow: none !important; 
+            opacity: 0.6; 
+            cursor: not-allowed; 
+        }
 
         .badge-blue { 
             background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); 
@@ -390,6 +398,10 @@
                             </a>
                             <a class="nav-item-link" onclick="switchView('viewSearchStudent', this)">
                                 <i class="bi bi-search"></i><span>Search Student</span>
+                            </a>
+                            <!-- NEW DOWNLOADABLES SIDEBAR MENU -->
+                            <a class="nav-item-link" onclick="switchView('viewDownloadables', this); fetchGitHubDownloads();">
+                                <i class="bi bi-download"></i><span>Downloadables</span>
                             </a>
                             <a class="nav-item-link" onclick="switchView('viewEditProfile', this)">
                                 <i class="bi bi-gear"></i><span>Edit Profile</span>
@@ -638,7 +650,8 @@
                         </span>
                     </div>
                     <div>
-                        <button onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3">
+                        <!-- DISABLED BY DEFAULT: DELETE BUTTON -->
+                        <button id="deleteSelectedBtn" onclick="deleteSelectedRecords()" class="btn btn-glass-red btn-sm px-3" disabled>
                             <i class="bi bi-trash me-1"></i> DELETE SELECTED RECORDS
                         </button>
                     </div>
@@ -676,6 +689,36 @@
             <iframe src="search_student.html" class="embedded-iframe"></iframe>
         </div>
 
+        <!-- PANEL 4: DYNAMIC DOWNLOADABLES PANEL -->
+        <div id="viewDownloadables" class="content-panel mb-4">
+            <div class="glass-card card-header-gradient p-4 mb-4">
+                <h5 class="fw-bold mb-0"><i class="bi bi-download me-2"></i>DOWNLOADABLE RESOURCES</h5>
+            </div>
+            
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark m-0"><i class="bi bi-folder2-open me-2 text-primary"></i>AVAILABLE FILES IN REPOSITORY</h6>
+                    <button onclick="fetchGitHubDownloads()" class="btn btn-glass-blue btn-sm px-3">
+                        <i class="bi bi-arrow-clockwise me-1"></i> REFRESH
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-glass text-center align-middle">
+                        <thead>
+                            <tr>
+                                <th class="text-start ps-3">FILE NAME</th>
+                                <th>FILE SIZE</th>
+                                <th>ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody id="downloadablesTableBody">
+                            <tr><td colspan="3" class="text-secondary p-4">LOADING FILES...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div id="viewEditProfile" class="content-panel">
             <iframe src="setup.html" class="embedded-iframe"></iframe>
         </div>
@@ -686,6 +729,54 @@
 <script>
 Auth.requireAuth('teacher');
 const teacher = Auth.getUser();
+
+// GITHUB DOWNLOADS CONFIGURATION
+const GITHUB_USERNAME = 'svc1itsection-user'; // REPLACE WITH YOUR GITHUB USERNAME
+const GITHUB_REPO = 'svcportal';     // REPLACE WITH YOUR GITHUB REPO NAME
+const DOWNLOADS_FOLDER = 'Downloads';
+
+async function fetchGitHubDownloads() {
+    const tbody = document.getElementById('downloadablesTableBody');
+    tbody.innerHTML = `<tr><td colspan="3" class="text-secondary p-4">FETCHING FILES FROM GITHUB...</td></tr>`;
+
+    const apiUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/${DOWNLOADS_FOLDER}`;
+
+    try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+            throw new Error(`Folder not found or API limit reached (${response.status})`);
+        }
+
+        const files = await response.json();
+        const downloadableFiles = files.filter(item => item.type === 'file');
+
+        if (downloadableFiles.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" class="text-secondary p-4">NO FILES AVAILABLE IN THE DOWNLOADS FOLDER.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        downloadableFiles.forEach(file => {
+            const sizeInKb = (file.size / 1024).toFixed(2);
+            tbody.innerHTML += `
+                <tr>
+                    <td class="text-start ps-3 fw-bold text-dark">
+                        <i class="bi bi-file-earmark-arrow-down me-2 text-primary"></i>${file.name}
+                    </td>
+                    <td class="text-muted fw-bold">${sizeInKb} KB</td>
+                    <td>
+                        <a href="${file.download_url}" class="btn btn-glass-green btn-sm px-3" target="_blank" download>
+                            <i class="bi bi-download me-1"></i> DOWNLOAD
+                        </a>
+                    </td>
+                </tr>
+            `;
+        });
+    } catch (error) {
+        console.error("GitHub Downloadables Error:", error);
+        tbody.innerHTML = `<tr><td colspan="3" class="text-danger p-4">FAILED TO LOAD DOWNLOADABLE FILES. PLEASE CHECK YOUR REPOSITORY CONFIGURATION.</td></tr>`;
+    }
+}
 
 function setupTeacherAvatar() {
     const fn = (teacher.firstname || '').trim();
@@ -780,6 +871,15 @@ function validateSearchForm() {
         applyBtn.disabled = false;
     } else {
         applyBtn.disabled = true;
+    }
+}
+
+// CHECKBOX LISTENER TO ENABLE/DISABLE DELETE SELECTED BUTTON
+function updateDeleteButtonState() {
+    const checkedCount = document.querySelectorAll('.record-checkbox:checked').length;
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+    if (deleteBtn) {
+        deleteBtn.disabled = (checkedCount === 0);
     }
 }
 
@@ -981,6 +1081,9 @@ function renderRecordsGrid(records) {
     currentFilteredRecords = records;
     const tbody = document.getElementById('gridTableBody');
     const badge = document.getElementById('recordCountBadge');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
 
     const totalCount = records ? records.length : 0;
 
@@ -990,6 +1093,7 @@ function renderRecordsGrid(records) {
 
     if (!records || records.length === 0) {
         tbody.innerHTML = `<tr><td colspan="9" class="text-secondary p-4">NO RECORDS MATCHED THE SPECIFIED CRITERIA DIRECTLY IN DATABASE.</td></tr>`;
+        updateDeleteButtonState();
         return;
     }
 
@@ -997,7 +1101,7 @@ function renderRecordsGrid(records) {
     records.forEach(r => {
         let rowHtml = `
             <tr>
-                <td><input type="checkbox" value="${r.studentid}|${r.subjects}|${r.component}" class="form-check-input record-checkbox"></td>
+                <td><input type="checkbox" value="${r.studentid}|${r.subjects}|${r.component}" class="form-check-input record-checkbox" onchange="updateDeleteButtonState()"></td>
                 <td class="fw-bold text-dark">${r.studentid || ''}</td>
                 <td class="text-dark fw-bold">${r.lastname || ''}</td>
                 <td class="text-dark">${r.firstname || ''}</td>
@@ -1014,6 +1118,8 @@ function renderRecordsGrid(records) {
             </tr>`;
         tbody.innerHTML += rowHtml;
     });
+
+    updateDeleteButtonState();
 }
 
 // INLINE EDIT MODAL OPENING - FETCHES DIRECTLY FROM DATABASE
@@ -1211,6 +1317,7 @@ async function deleteSingleRow(stuId, sub, comp) {
 
 function toggleSelectAll(master) {
     document.querySelectorAll('.record-checkbox').forEach(cb => cb.checked = master.checked);
+    updateDeleteButtonState();
 }
 
 async function deleteSelectedRecords() {
