@@ -89,8 +89,8 @@
         }
 
         .sheet-header-banner {
-            width: 80%;
-            max-height: 80px;
+            width: 100%;
+            max-height: 85px;
             object-fit: contain;
             display: block;
         }
@@ -107,7 +107,7 @@
             text-align: right;
             color: #000000;
             line-height: 1.2;
-            white-space: nowrap; /* Prevents text from wrapping into multiple lines */
+            white-space: nowrap;
         }
 
         .meta-table {
@@ -172,14 +172,14 @@
         }
 
         .signature-line {
-    width: 250px;
-    border-bottom: 1px solid #000000; /* Line is now BELOW the teacher name */
-    text-align: center;
-    font-size: 0.8rem;
-    font-weight: 700;
-    padding-bottom: 2px; /* Space between teacher name and the line */
-    margin-bottom: 4px;  /* Space between the line and subtext */
-}
+            width: 250px;
+            border-bottom: 1px solid #000000;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding-bottom: 3px;
+            margin-bottom: 4px;
+        }
 
         .footer-contacts {
             font-size: 0.68rem;
@@ -209,7 +209,6 @@
                 margin: 0 !important;
             }
 
-            /* Repeat table headers on multi-page splits */
             .sheet-table {
                 page-break-inside: auto;
             }
@@ -277,7 +276,17 @@
                 </select>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-2">
+                <label class="form-label small fw-bold mb-1">TERM / PERIOD *</label>
+                <select id="filterTerm" class="form-select form-select-sm" onchange="onTermChange()" disabled>
+                    <option value="">SELECT TERM</option>
+                    <option value="PRELIM">PRELIM</option>
+                    <option value="MIDTERM">MIDTERM</option>
+                    <option value="FINAL">FINAL</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
                 <label class="form-label small fw-bold mb-1">BRANCH *</label>
                 <select id="filterBranch" class="form-select form-select-sm" onchange="onBranchChange()" disabled>
                     <option value="">SELECT BRANCH</option>
@@ -291,7 +300,7 @@
                 </select>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label small fw-bold mb-1">SCHEDTAG (OPTIONAL)</label>
                 <select id="filterSchedtag" class="form-select form-select-sm" disabled>
                     <option value="">ALL SCHEDTAGS</option>
@@ -308,17 +317,16 @@
             <img src="../logo.png" class="header-logo" alt="Logo" onerror="this.style.visibility='hidden'">
 
             <!-- CENTER IMAGE HEADER BANNER -->
-            <div class="text-center flex-grow-1 px-3">
+            <div class="text-center flex-grow-1 px-1">
                 <img src="../Universal_Header.jpg" class="sheet-header-banner" alt="ST. VINCENT COLLEGE • LEGANES • IVISAN • POTOTAN •">
             </div>
 
             <!-- FORM IDENTIFIER (RIGHT) -->
-            <!-- FORM IDENTIFIER (RIGHT) -->
-<div class="form-id-badge">
-    OFFICE OF THE REGISTRAR<br>
-    OFFICIAL LIST<br>
-    <span class="fs-6 fw-black" style="color: #dc2626;">R - FORM 16 - A1</span>
-</div>
+            <div class="form-id-badge">
+                OFFICE OF THE REGISTRAR<br>
+                OFFICIAL LIST<br>
+                <span class="fs-6 fw-black" style="color: #dc2626;">R - FORM 16 - A1</span>
+            </div>
         </div>
 
         <hr class="my-2" style="border-top: 2px solid #000000; opacity: 1;">
@@ -378,14 +386,12 @@
         </div>
 
         <!-- SIGNATURE SECTION -->
-<div class="d-flex justify-content-between align-items-end signature-section">
-    <div>
-        <!-- Teacher Name with border-bottom line underneath -->
-        <div class="signature-line" id="docInstructorSignature">-</div>
-        <!-- Subtext below the line -->
-        <div class="text-center fw-bold small" style="width: 250px;">Signature over Printed Name</div>
-    </div>
-</div>
+        <div class="d-flex justify-content-between align-items-end signature-section">
+            <div>
+                <div class="signature-line" id="docInstructorSignature">-</div>
+                <div class="text-center fw-bold small" style="width: 250px;">Signature over Printed Name</div>
+            </div>
+        </div>
 
         <!-- FOOTER CONTACTS -->
         <div class="footer-contacts">
@@ -415,6 +421,37 @@
                 }
             }
             return '-';
+        }
+
+        function calculateQ4Summation(componentsMap, term) {
+            let totalEarned = 0;
+            let totalMax = 0;
+            let foundCount = 0;
+
+            Object.keys(componentsMap).forEach(key => {
+                if (key.includes(term.toUpperCase())) {
+                    const match = key.match(/QUIZ\s*([4-9]|[1-9][0-9])/i);
+                    if (match) {
+                        const val = String(componentsMap[key]).trim();
+                        if (val.includes('/')) {
+                            const parts = val.split('/');
+                            const earned = parseFloat(parts[0]);
+                            const max = parseFloat(parts[1]);
+                            if (!isNaN(earned) && !isNaN(max)) {
+                                totalEarned += earned;
+                                totalMax += max;
+                                foundCount++;
+                            }
+                        } else if (!isNaN(parseFloat(val))) {
+                            totalEarned += parseFloat(val);
+                            foundCount++;
+                        }
+                    }
+                }
+            });
+
+            if (foundCount === 0) return '-';
+            return totalMax > 0 ? `${totalEarned}/${totalMax}` : `${totalEarned}`;
         }
 
         function formatSchedtagHeader(schedtagList) {
@@ -478,7 +515,7 @@
 
                 const { data, error } = await _supabase
                     .from('tblrecords')
-                    .select('schoolyear, semester, schoolbranch, subjects, schedtag')
+                    .select('schoolyear, semester, schoolbranch, subjects, schedtag, component')
                     .eq('teacherid', teacherIdDisplay)
                     .range(0, 9999);
 
@@ -505,7 +542,7 @@
         function populateSyDropdown() {
             const sySelect = document.getElementById('filterSy');
             sySelect.innerHTML = '<option value="">SELECT SCHOOL YEAR</option>';
-            resetSubsequentDropdowns(['filterSem', 'filterBranch', 'filterSubject', 'filterSchedtag']);
+            resetSubsequentDropdowns(['filterSem', 'filterTerm', 'filterBranch', 'filterSubject', 'filterSchedtag']);
 
             const schoolYears = new Set();
             teacherDistinctRecords.forEach(r => {
@@ -526,7 +563,7 @@
             const sy = document.getElementById('filterSy').value;
             const semSelect = document.getElementById('filterSem');
             semSelect.innerHTML = '<option value="">SELECT SEMESTER</option>';
-            resetSubsequentDropdowns(['filterBranch', 'filterSubject', 'filterSchedtag']);
+            resetSubsequentDropdowns(['filterTerm', 'filterBranch', 'filterSubject', 'filterSchedtag']);
 
             if (!sy) return;
 
@@ -548,13 +585,25 @@
         }
 
         function onSemChange() {
+            const sem = document.getElementById('filterSem').value;
+            const termSelect = document.getElementById('filterTerm');
+            termSelect.value = "";
+            resetSubsequentDropdowns(['filterBranch', 'filterSubject', 'filterSchedtag']);
+
+            if (sem) {
+                termSelect.disabled = false;
+            }
+        }
+
+        function onTermChange() {
             const sy = document.getElementById('filterSy').value;
             const sem = document.getElementById('filterSem').value;
+            const term = document.getElementById('filterTerm').value;
             const branchSelect = document.getElementById('filterBranch');
             branchSelect.innerHTML = '<option value="">SELECT BRANCH</option>';
             resetSubsequentDropdowns(['filterSubject', 'filterSchedtag']);
 
-            if (!sem) return;
+            if (!term) return;
 
             const matching = teacherDistinctRecords.filter(r => 
                 String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase() && 
@@ -650,6 +699,8 @@
                 const el = document.getElementById(id);
                 if (id === 'filterSchedtag') {
                     el.innerHTML = '<option value="">ALL SCHEDTAGS (OPTIONAL)</option>';
+                } else if (id === 'filterTerm') {
+                    el.value = "";
                 } else {
                     el.innerHTML = `<option value="">SELECT ${id.replace('filter', '').toUpperCase()}</option>`;
                 }
@@ -668,12 +719,13 @@
         async function fetchAndShowGradeSheet() {
             const sy = document.getElementById('filterSy').value;
             const sem = document.getElementById('filterSem').value;
+            const term = document.getElementById('filterTerm').value;
             const branch = document.getElementById('filterBranch').value;
             const subject = document.getElementById('filterSubject').value;
             const schedtag = document.getElementById('filterSchedtag').value;
 
-            if (!sy || !sem || !branch || !subject) {
-                alert('Important criteria (School Year, Semester, Branch, and Subject) must be selected first!');
+            if (!sy || !sem || !term || !branch || !subject) {
+                alert('All required criteria (School Year, Semester, Term, Branch, and Subject) must be selected first!');
                 return;
             }
 
@@ -682,6 +734,7 @@
             document.getElementById('printBtn').disabled = true;
             loadedStudentCount = 0;
 
+            // Strictly query records containing the selected term in the component column
             let query = _supabase
                 .from('tblrecords')
                 .select('*')
@@ -689,7 +742,8 @@
                 .eq('schoolyear', sy)
                 .eq('semester', sem)
                 .ilike('schoolbranch', branch)
-                .ilike('subjects', subject);
+                .ilike('subjects', subject)
+                .ilike('component', `%${term}%`);
 
             if (schedtag) {
                 query = query.ilike('schedtag', schedtag);
@@ -704,7 +758,7 @@
             }
 
             if (!data || data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="py-4 text-danger fw-bold">NO RECORDS FOUND IN DATABASE FOR THIS SELECTION.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="py-4 text-danger fw-bold">NO RECORDS FOUND IN DATABASE FOR ${term} SELECTION.</td></tr>`;
                 document.getElementById('endOfListNotice').style.display = 'none';
                 return;
             }
@@ -714,7 +768,7 @@
             ).sort();
 
             const semText = sem === '1' ? '1st SEMESTER' : (sem === '2' ? '2nd SEMESTER' : 'SUMMER');
-            document.getElementById('docSubject').innerText = `${subject} (${branch})`;
+            document.getElementById('docSubject').innerText = `${subject} (${branch}) (${term})`;
             document.getElementById('docSemester').innerText = semText;
             document.getElementById('docSchedtag').innerText = formatSchedtagHeader(uniqueSchedtags);
             document.getElementById('docSchoolYear').innerText = sy;
@@ -759,13 +813,14 @@
             studentList.forEach((stu, idx) => {
                 const comps = stu.components;
 
-                const q1 = extractGrade(comps, ['PRELIM QUIZ 1', 'QUIZ 1', 'QUIZ #1', 'QUIZ1', 'Q1', 'Q-1']);
-                const q2 = extractGrade(comps, ['PRELIM QUIZ 2', 'QUIZ 2', 'QUIZ #2', 'QUIZ2', 'Q2', 'Q-2']);
-                const q3 = extractGrade(comps, ['PRELIM QUIZ 3', 'QUIZ 3', 'QUIZ #3', 'QUIZ3', 'Q3', 'Q-3']);
-                const q4 = extractGrade(comps, ['PRELIM QUIZ 4', 'QUIZ 4', 'QUIZ #4', 'QUIZ4', 'Q4', 'Q-4']);
-                const qAve = extractGrade(comps, ['PRELIM QUIZ GRADE', 'QUIZ AVE', 'QUIZ AVERAGE', 'Q-AVE', 'Q AVE', 'QUIZ GRADE']);
-                const me = extractGrade(comps, ['PRELIM EXAMINATION GRADE', 'MAJOR EXAM', 'MIDTERM EXAM', 'PRELIM EXAM', 'EXAM', 'ME']);
-                const finalGrade = extractGrade(comps, ['PRELIM GRADE', 'FINAL GRADE', 'REMARKS', 'GRADE']);
+                // Strict extraction matching ONLY the selected term
+                const q1 = extractGrade(comps, [`${term} QUIZ 1`, `${term} QUIZ #1`, `${term} QUIZ1`]);
+                const q2 = extractGrade(comps, [`${term} QUIZ 2`, `${term} QUIZ #2`, `${term} QUIZ2`]);
+                const q3 = extractGrade(comps, [`${term} QUIZ 3`, `${term} QUIZ #3`, `${term} QUIZ3`]);
+                const q4 = calculateQ4Summation(comps, term);
+                const qAve = extractGrade(comps, [`${term} QUIZ GRADE`, `${term} QUIZ AVE`, `${term} QUIZ AVERAGE`]);
+                const me = extractGrade(comps, [`${term} EXAMINATION GRADE`, `${term} EXAM`, `${term} MAJOR EXAM`]);
+                const finalGrade = extractGrade(comps, [`${term} GRADE`]);
 
                 tbody.innerHTML += `
                     <tr>
