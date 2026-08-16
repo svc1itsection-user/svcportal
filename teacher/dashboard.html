@@ -632,17 +632,27 @@
             <div class="glass-card card-header-gradient p-4 mb-4 filter-card-wrapper">
                 <h5 class="fw-bold mb-3"><i class="bi bi-funnel me-2"></i>SEARCH & FILTER RECORDS</h5>
                 <div class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label text-white small fw-bold">SCHOOL YEAR *</label>
                         <select id="filterSy" class="form-select form-select-sm" onchange="validateSearchForm()"></select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label text-white small fw-bold">SEMESTER *</label>
                         <select id="filterSem" class="form-select form-select-sm" onchange="validateSearchForm()">
                             <option value="">SELECT SEMESTER</option>
                             <option value="1">First Semester</option>
                             <option value="2">Second Semester</option>
                             <option value="3">Summer</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-white small fw-bold">TERM / PERIOD *</label>
+                        <select id="filterTerm" class="form-select form-select-sm" onchange="validateSearchForm()">
+                            <option value="">SELECT TERM</option>
+                            <option value="ALL">ALL TERMS</option>
+                            <option value="PRELIM">PRELIM</option>
+                            <option value="MIDTERM">MIDTERM</option>
+                            <option value="FINAL">FINAL</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -914,13 +924,14 @@ function initSyDropdown() {
 function validateSearchForm() {
     const sy = document.getElementById('filterSy').value;
     const sem = document.getElementById('filterSem').value;
+    const term = document.getElementById('filterTerm').value;
     const sub = document.getElementById('filterSubject').value;
     const comp = document.getElementById('selectedComponentInput').value;
     const query = (document.getElementById('unifiedSearchBox').value || '').trim();
 
     const applyBtn = document.getElementById('applySearchBtn');
     
-    if (sy && sem && sub && comp && query) {
+    if (sy && sem && term && sub && comp && query) {
         applyBtn.disabled = false;
     } else {
         applyBtn.disabled = true;
@@ -1034,11 +1045,12 @@ function selectComponent(val) {
 async function executeUnifiedSearch() {
     const sy = document.getElementById('filterSy').value;
     const sem = document.getElementById('filterSem').value;
+    const term = document.getElementById('filterTerm').value;
     const sub = document.getElementById('filterSubject').value;
     const comp = document.getElementById('selectedComponentInput').value;
     const query = (document.getElementById('unifiedSearchBox').value || '').trim();
 
-    if (!sy || !sem || !sub || !comp || !query) {
+    if (!sy || !sem || !term || !sub || !comp || !query) {
         showAlert("PLEASE FILL IN ALL CRITERION BEFORE SEARCHING.");
         return;
     }
@@ -1053,6 +1065,10 @@ async function executeUnifiedSearch() {
 
         if (sy) {
             dbQuery = dbQuery.eq('schoolyear', sy);
+        }
+
+        if (term && term !== 'ALL') {
+            dbQuery = dbQuery.ilike('component', `%${term}%`);
         }
 
         if (sub) {
@@ -1145,7 +1161,7 @@ function renderRecordsGrid(records) {
     badge.style.display = 'inline-block';
 
     if (!records || records.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="text-secondary p-4">NO RECORDS MATCHED THE SPECIFIED CRITERIA DIRECTLY IN DATABASE.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="fw-bold p-4" style="color: #dc3545 !important;">NO RECORDS MATCHED THE SPECIFIED CRITERIA DIRECTLY IN DATABASE.</td></tr>`;
         updateDeleteButtonState();
         return;
     }
