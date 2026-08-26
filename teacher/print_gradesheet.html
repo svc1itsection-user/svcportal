@@ -280,9 +280,6 @@
                 <label class="form-label small fw-bold mb-1">TERM / PERIOD *</label>
                 <select id="filterTerm" class="form-select form-select-sm" onchange="onTermChange()" disabled>
                     <option value="">SELECT TERM</option>
-                    <option value="PRELIM">PRELIM</option>
-                    <option value="MIDTERM">MIDTERM</option>
-                    <option value="FINAL">FINAL</option>
                 </select>
             </div>
 
@@ -567,10 +564,15 @@
 
             if (!sy) return;
 
-            const matching = teacherDistinctRecords.filter(r => String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase());
+            const matching = teacherDistinctRecords.filter(r => 
+                String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase()
+            );
+
             const semesters = new Set();
             matching.forEach(r => {
-                if (r.semester !== undefined && r.semester !== null) semesters.add(String(r.semester).trim().toUpperCase());
+                if (r.semester !== undefined && r.semester !== null) {
+                    semesters.add(String(r.semester).trim().toUpperCase());
+                }
             });
 
             const semList = Array.from(semesters).sort();
@@ -585,13 +587,42 @@
         }
 
         function onSemChange() {
+            const sy = document.getElementById('filterSy').value;
             const sem = document.getElementById('filterSem').value;
             const termSelect = document.getElementById('filterTerm');
-            termSelect.value = "";
+            termSelect.innerHTML = '<option value="">SELECT TERM</option>';
             resetSubsequentDropdowns(['filterBranch', 'filterSubject', 'filterSchedtag']);
 
-            if (sem) {
+            if (!sy || !sem) return;
+
+            const matching = teacherDistinctRecords.filter(r => 
+                String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase() &&
+                String(r.semester || '').trim().toUpperCase() === String(sem).trim().toUpperCase()
+            );
+
+            const terms = new Set();
+            const standardTerms = ['PRELIM', 'MIDTERM', 'FINAL'];
+
+            matching.forEach(r => {
+                const comp = String(r.component || '').toUpperCase();
+                standardTerms.forEach(t => {
+                    if (comp.includes(t)) {
+                        terms.add(t);
+                    }
+                });
+            });
+
+            const termList = Array.from(terms).sort((a, b) => {
+                return standardTerms.indexOf(a) - standardTerms.indexOf(b);
+            });
+
+            if (termList.length > 0) {
                 termSelect.disabled = false;
+                termList.forEach(term => {
+                    termSelect.innerHTML += `<option value="${term}">${term}</option>`;
+                });
+            } else {
+                termSelect.innerHTML = '<option value="">NO TERMS FOUND</option>';
             }
         }
 
@@ -603,11 +634,12 @@
             branchSelect.innerHTML = '<option value="">SELECT BRANCH</option>';
             resetSubsequentDropdowns(['filterSubject', 'filterSchedtag']);
 
-            if (!term) return;
+            if (!sy || !sem || !term) return;
 
             const matching = teacherDistinctRecords.filter(r => 
                 String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase() && 
-                String(r.semester || '').trim().toUpperCase() === String(sem).trim().toUpperCase()
+                String(r.semester || '').trim().toUpperCase() === String(sem).trim().toUpperCase() &&
+                String(r.component || '').toUpperCase().includes(term)
             );
 
             const branches = new Set();
@@ -628,16 +660,18 @@
         function onBranchChange() {
             const sy = document.getElementById('filterSy').value;
             const sem = document.getElementById('filterSem').value;
+            const term = document.getElementById('filterTerm').value;
             const branch = document.getElementById('filterBranch').value;
             const subjectSelect = document.getElementById('filterSubject');
             subjectSelect.innerHTML = '<option value="">SELECT SUBJECT</option>';
             resetSubsequentDropdowns(['filterSchedtag']);
 
-            if (!branch) return;
+            if (!sy || !sem || !term || !branch) return;
 
             const matching = teacherDistinctRecords.filter(r => 
                 String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase() && 
                 String(r.semester || '').trim().toUpperCase() === String(sem).trim().toUpperCase() &&
+                String(r.component || '').toUpperCase().includes(term) &&
                 String(r.schoolbranch || '').trim().toUpperCase() === String(branch).trim().toUpperCase()
             );
 
@@ -659,29 +693,34 @@
         function onSubjectChange() {
             const sy = document.getElementById('filterSy').value;
             const sem = document.getElementById('filterSem').value;
+            const term = document.getElementById('filterTerm').value;
             const branch = document.getElementById('filterBranch').value;
             const subject = document.getElementById('filterSubject').value;
             const schedtagSelect = document.getElementById('filterSchedtag');
             
             schedtagSelect.innerHTML = '<option value="">ALL SCHEDTAGS (OPTIONAL)</option>';
 
-            if (!subject) {
+            if (!sy || !sem || !term || !branch || !subject) {
                 resetSubsequentDropdowns(['filterSchedtag']);
                 return;
             }
 
             document.getElementById('btnShowSheet').disabled = false;
 
+            // Filter matching records strictly by Teacher ID, SY, SEM, TERM, BRANCH, AND SUBJECT
             const matching = teacherDistinctRecords.filter(r => 
                 String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase() && 
                 String(r.semester || '').trim().toUpperCase() === String(sem).trim().toUpperCase() &&
+                String(r.component || '').toUpperCase().includes(term) &&
                 String(r.schoolbranch || '').trim().toUpperCase() === String(branch).trim().toUpperCase() &&
                 String(r.subjects || '').trim().toUpperCase() === String(subject).trim().toUpperCase()
             );
 
             const schedtags = new Set();
             matching.forEach(r => {
-                if (r.schedtag) schedtags.add(String(r.schedtag).trim().toUpperCase());
+                if (r.schedtag && String(r.schedtag).trim() !== '') {
+                    schedtags.add(String(r.schedtag).trim().toUpperCase());
+                }
             });
 
             const schedtagList = Array.from(schedtags).sort();
@@ -700,7 +739,7 @@
                 if (id === 'filterSchedtag') {
                     el.innerHTML = '<option value="">ALL SCHEDTAGS (OPTIONAL)</option>';
                 } else if (id === 'filterTerm') {
-                    el.value = "";
+                    el.innerHTML = '<option value="">SELECT TERM</option>';
                 } else {
                     el.innerHTML = `<option value="">SELECT ${id.replace('filter', '').toUpperCase()}</option>`;
                 }
@@ -734,7 +773,6 @@
             document.getElementById('printBtn').disabled = true;
             loadedStudentCount = 0;
 
-            // Strictly query records containing the selected term in the component column
             let query = _supabase
                 .from('tblrecords')
                 .select('*')
@@ -813,7 +851,6 @@
             studentList.forEach((stu, idx) => {
                 const comps = stu.components;
 
-                // Strict extraction matching ONLY the selected term
                 const q1 = extractGrade(comps, [`${term} QUIZ 1`, `${term} QUIZ #1`, `${term} QUIZ1`]);
                 const q2 = extractGrade(comps, [`${term} QUIZ 2`, `${term} QUIZ #2`, `${term} QUIZ2`]);
                 const q3 = extractGrade(comps, [`${term} QUIZ 3`, `${term} QUIZ #3`, `${term} QUIZ3`]);
