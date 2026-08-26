@@ -1483,96 +1483,102 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
     const reader = new FileReader();
 
     reader.onload = async function(e) {
-        let validRows = [];
+        try {
+            let validRows = [];
 
-        if (isExcel) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            if (isExcel) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-            for (let i = 1; i < jsonRows.length; i++) {
-                const row = jsonRows[i].map(item => item !== undefined && item !== null ? String(item).trim() : '');
-                if (row.length >= 11 && row[0] && row[6] && row[7]) {
-                    validRows.push(row);
+                for (let i = 1; i < jsonRows.length; i++) {
+                    const row = jsonRows[i].map(item => item !== undefined && item !== null ? String(item).trim() : '');
+                    if (row.length >= 11 && row[0] && row[6] && row[7]) {
+                        validRows.push(row);
+                    }
+                }
+            } else {
+                const lines = e.target.result.split('\n');
+                for (let i = 1; i < lines.length; i++) {
+                    const row = lines[i].split(',').map(item => item ? item.trim() : '');
+                    if (row.length >= 11 && row[0] && row[6] && row[7]) {
+                        validRows.push(row);
+                    }
                 }
             }
-        } else {
-            const lines = e.target.result.split('\n');
-            for (let i = 1; i < lines.length; i++) {
-                const row = lines[i].split(',').map(item => item ? item.trim() : '');
-                if (row.length >= 11 && row[0] && row[6] && row[7]) {
-                    validRows.push(row);
-                }
+
+            const totalRecords = validRows.length;
+            if (totalRecords === 0) {
+                showAlert("NO VALID RECORDS FOUND IN FILE.");
+                return;
             }
-        }
 
-        const totalRecords = validRows.length;
-        if (totalRecords === 0) {
-            showLoading(false);
-            showAlert("NO VALID RECORDS FOUND IN FILE.");
-            return;
-        }
+            let inserted = 0;
 
-        let inserted = 0;
+            for (let idx = 0; idx < totalRecords; idx++) {
+                const row = validRows[idx];
+                const currentNum = idx + 1;
 
-        for (let idx = 0; idx < totalRecords; idx++) {
-            const row = validRows[idx];
-            const currentNum = idx + 1;
+                showLoading(true, `PROCESSING RECORDS... (${currentNum} OF ${totalRecords})`);
 
-            showLoading(true, `PROCESSING RECORDS... (${currentNum} OF ${totalRecords})`);
+                const stuId = row[0].toUpperCase();
+                const subName = row[6].toUpperCase();
+                const compName = row[7].toUpperCase();
+                const branchName = row[11] ? row[11].toUpperCase() : null;
 
-            const stuId = row[0].toUpperCase();
-            const subName = row[6].toUpperCase();
-            const compName = row[7].toUpperCase();
-            const branchName = row[11] ? row[11].toUpperCase() : null;
+                const payload = {
+                    studentid: stuId,
+                    teacherid: teacher.teacherid,
+                    lastname: row[2].toUpperCase(),
+                    firstname: row[3].toUpperCase(),
+                    course: row[4].toUpperCase(),
+                    schedtag: row[5].toUpperCase(),
+                    subjects: subName,
+                    component: compName,
+                    result: row[8].toUpperCase(),
+                    schoolyear: row[9].toUpperCase(),
+                    semester: row[10].toUpperCase(),
+                    schoolbranch: branchName
+                };
 
-            const payload = {
-                studentid: stuId,
-                teacherid: teacher.teacherid,
-                lastname: row[2].toUpperCase(),
-                firstname: row[3].toUpperCase(),
-                course: row[4].toUpperCase(),
-                schedtag: row[5].toUpperCase(),
-                subjects: subName,
-                component: compName,
-                result: row[8].toUpperCase(),
-                schoolyear: row[9].toUpperCase(),
-                semester: row[10].toUpperCase(),
-                schoolbranch: branchName
-            };
-
-            const { data: updateData, error: updateError } = await _supabase
-                .from('tblrecords')
-                .update(payload)
-                .eq('teacherid', teacher.teacherid)
-                .ilike('studentid', stuId)
-                .ilike('subjects', subName)
-                .ilike('component', compName)
-                .select();
-
-            if (!updateError && (!updateData || updateData.length === 0)) {
-                const { error: insertError } = await _supabase
+                const { data: updateData, error: updateError } = await _supabase
                     .from('tblrecords')
-                    .insert([payload]);
+                    .update(payload)
+                    .eq('teacherid', teacher.teacherid)
+                    .ilike('studentid', stuId)
+                    .ilike('subjects', subName)
+                    .ilike('component', compName)
+                    .select();
 
-                if (!insertError) inserted++;
-            } else if (!updateError) {
-                inserted++;
+                if (!updateError && (!updateData || updateData.length === 0)) {
+                    const { error: insertError } = await _supabase
+                        .from('tblrecords')
+                        .insert([payload]);
+
+                    if (!insertError) inserted++;
+                } else if (!updateError) {
+                    inserted++;
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 0));
             }
 
-            await new Promise(resolve => setTimeout(resolve, 0));
-        }
+            showAlert(`FILE PROCESSED: PROCESSED ${inserted} OF ${totalRecords} RECORDS SUCCESSFULLY.`);
+            fileInput.value = '';
+            await loadTeacherDashboard();
 
-        showLoading(false);
-        showAlert(`FILE PROCESSED: PROCESSED ${inserted} OF ${totalRecords} RECORDS SUCCESSFULLY.`);
-        fileInput.value = '';
-        await loadTeacherDashboard();
+        } catch (err) {
+            console.error("Upload error:", err);
+            showAlert("AN ERROR OCCURRED WHILE READING/UPLOADING THE FILE.");
+        } finally {
+            showLoading(false);
+        }
     };
 
     if (isExcel) {
-        reader.readAsBuffer(file);
+        reader.readAsArrayBuffer(file);
     } else {
         reader.readAsText(file, 'UTF-8');
     }
