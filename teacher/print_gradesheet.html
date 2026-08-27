@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Print Grade Sheet - SVC Teacher Portal</title>
         
-            <!-- FAVICON / BROWSER TAB ICON -->
+    <!-- FAVICON / BROWSER TAB ICON -->
     <link rel="icon" type="image/png" href="../logo.png">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -38,6 +38,71 @@
             font-weight: 600;
             text-transform: uppercase;
             font-size: 0.85rem;
+        }
+
+        /* CHECKBOX DROPDOWN CUSTOM STYLES */
+        .schedtag-dropdown-container {
+            position: relative;
+        }
+
+        .schedtag-select-btn {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            width: 100%;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .schedtag-select-btn:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+
+        .schedtag-checkbox-list {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            max-height: 180px;
+            overflow-y: auto;
+            z-index: 1050;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 6px;
+        }
+
+        .schedtag-checkbox-list.show {
+            display: block;
+        }
+
+        .schedtag-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .schedtag-item:hover {
+            background-color: #f1f5f9;
+        }
+
+        .schedtag-item input[type="checkbox"] {
+            cursor: pointer;
         }
 
         .btn-action {
@@ -301,11 +366,18 @@
                 </select>
             </div>
 
+            <!-- MULTI-SELECT CHECKBOX DROPDOWN FOR SCHEDTAG -->
             <div class="col-md-2">
-                <label class="form-label small fw-bold mb-1">SCHEDTAG (OPTIONAL)</label>
-                <select id="filterSchedtag" class="form-select form-select-sm" disabled>
-                    <option value="">ALL SCHEDTAGS</option>
-                </select>
+                <label class="form-label small fw-bold mb-1">SCHEDTAG *</label>
+                <div class="schedtag-dropdown-container">
+                    <button class="schedtag-select-btn" id="schedtagBtn" type="button" onclick="toggleSchedtagDropdown()" disabled>
+                        <span id="schedtagBtnLabel">SELECT SCHEDTAG</span>
+                        <i class="bi bi-chevron-down ms-1"></i>
+                    </button>
+                    <div class="schedtag-checkbox-list" id="schedtagList">
+                        <!-- Checkboxes inserted dynamically -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -514,15 +586,36 @@
                     return;
                 }
 
-                const { data, error } = await _supabase
-                    .from('tblrecords')
-                    .select('schoolyear, semester, schoolbranch, subjects, schedtag, component')
-                    .eq('teacherid', teacherIdDisplay)
-                    .range(0, 9999);
+                let data = [];
+                let page = 0;
+                const pageSize = 1000;
+                let hasMore = true;
 
-                if (error) {
-                    console.error('Error fetching criterion options:', error);
-                    return;
+                while (hasMore) {
+                    const from = page * pageSize;
+                    const to = from + pageSize - 1;
+
+                    const { data: pageData, error: pageError } = await _supabase
+                        .from('tblrecords')
+                        .select('schoolyear, semester, schoolbranch, subjects, schedtag, component')
+                        .eq('teacherid', teacherIdDisplay)
+                        .range(from, to);
+
+                    if (pageError) {
+                        console.error('Error fetching criterion options:', pageError);
+                        break;
+                    }
+
+                    if (pageData && pageData.length > 0) {
+                        data = data.concat(pageData);
+                        if (pageData.length < pageSize) {
+                            hasMore = false;
+                        } else {
+                            page++;
+                        }
+                    } else {
+                        hasMore = false;
+                    }
                 }
 
                 teacherDistinctRecords = data || [];
@@ -539,11 +632,10 @@
             }
         }
 
-        // --- CASCADING DROPDOWN HANDLERS ---
         function populateSyDropdown() {
             const sySelect = document.getElementById('filterSy');
             sySelect.innerHTML = '<option value="">SELECT SCHOOL YEAR</option>';
-            resetSubsequentDropdowns(['filterSem', 'filterTerm', 'filterBranch', 'filterSubject', 'filterSchedtag']);
+            resetSubsequentDropdowns(['filterSem', 'filterTerm', 'filterBranch', 'filterSubject', 'schedtag']);
 
             const schoolYears = new Set();
             teacherDistinctRecords.forEach(r => {
@@ -564,7 +656,7 @@
             const sy = document.getElementById('filterSy').value;
             const semSelect = document.getElementById('filterSem');
             semSelect.innerHTML = '<option value="">SELECT SEMESTER</option>';
-            resetSubsequentDropdowns(['filterTerm', 'filterBranch', 'filterSubject', 'filterSchedtag']);
+            resetSubsequentDropdowns(['filterTerm', 'filterBranch', 'filterSubject', 'schedtag']);
 
             if (!sy) return;
 
@@ -595,7 +687,7 @@
             const sem = document.getElementById('filterSem').value;
             const termSelect = document.getElementById('filterTerm');
             termSelect.innerHTML = '<option value="">SELECT TERM</option>';
-            resetSubsequentDropdowns(['filterBranch', 'filterSubject', 'filterSchedtag']);
+            resetSubsequentDropdowns(['filterBranch', 'filterSubject', 'schedtag']);
 
             if (!sy || !sem) return;
 
@@ -636,7 +728,7 @@
             const term = document.getElementById('filterTerm').value;
             const branchSelect = document.getElementById('filterBranch');
             branchSelect.innerHTML = '<option value="">SELECT BRANCH</option>';
-            resetSubsequentDropdowns(['filterSubject', 'filterSchedtag']);
+            resetSubsequentDropdowns(['filterSubject', 'schedtag']);
 
             if (!sy || !sem || !term) return;
 
@@ -668,7 +760,7 @@
             const branch = document.getElementById('filterBranch').value;
             const subjectSelect = document.getElementById('filterSubject');
             subjectSelect.innerHTML = '<option value="">SELECT SUBJECT</option>';
-            resetSubsequentDropdowns(['filterSchedtag']);
+            resetSubsequentDropdowns(['schedtag']);
 
             if (!sy || !sem || !term || !branch) return;
 
@@ -700,18 +792,16 @@
             const term = document.getElementById('filterTerm').value;
             const branch = document.getElementById('filterBranch').value;
             const subject = document.getElementById('filterSubject').value;
-            const schedtagSelect = document.getElementById('filterSchedtag');
             
-            schedtagSelect.innerHTML = '<option value="">ALL SCHEDTAGS (OPTIONAL)</option>';
+            const listContainer = document.getElementById('schedtagList');
+            const schedtagBtn = document.getElementById('schedtagBtn');
+            listContainer.innerHTML = '';
 
             if (!sy || !sem || !term || !branch || !subject) {
-                resetSubsequentDropdowns(['filterSchedtag']);
+                resetSubsequentDropdowns(['schedtag']);
                 return;
             }
 
-            document.getElementById('btnShowSheet').disabled = false;
-
-            // Filter matching records strictly by Teacher ID, SY, SEM, TERM, BRANCH, AND SUBJECT
             const matching = teacherDistinctRecords.filter(r => 
                 String(r.schoolyear || '').trim().toUpperCase() === String(sy).trim().toUpperCase() && 
                 String(r.semester || '').trim().toUpperCase() === String(sem).trim().toUpperCase() &&
@@ -730,24 +820,71 @@
             const schedtagList = Array.from(schedtags).sort();
 
             if (schedtagList.length > 0) {
-                schedtagSelect.disabled = false;
+                schedtagBtn.disabled = false;
                 schedtagList.forEach(st => {
-                    schedtagSelect.innerHTML += `<option value="${st}">${st}</option>`;
+                    listContainer.innerHTML += `
+                        <label class="schedtag-item">
+                            <input type="checkbox" value="${st}" onchange="updateSchedtagSelection()">
+                            <span>${st}</span>
+                        </label>
+                    `;
                 });
+            } else {
+                schedtagBtn.disabled = true;
+            }
+            
+            updateSchedtagSelection();
+        }
+
+        function toggleSchedtagDropdown() {
+            const list = document.getElementById('schedtagList');
+            list.classList.toggle('show');
+        }
+
+        function getSelectedSchedtags() {
+            const checkboxes = document.querySelectorAll('#schedtagList input[type="checkbox"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        function updateSchedtagSelection() {
+            const selected = getSelectedSchedtags();
+            const btnLabel = document.getElementById('schedtagBtnLabel');
+            const btnShow = document.getElementById('btnShowSheet');
+
+            if (selected.length === 0) {
+                btnLabel.innerText = 'SELECT SCHEDTAG';
+                btnShow.disabled = true;
+            } else if (selected.length === 1) {
+                btnLabel.innerText = selected[0];
+                btnShow.disabled = false;
+            } else {
+                btnLabel.innerText = `${selected.length} SELECTED`;
+                btnShow.disabled = false;
             }
         }
 
+        document.addEventListener('click', function(e) {
+            const container = document.querySelector('.schedtag-dropdown-container');
+            if (container && !container.contains(e.target)) {
+                document.getElementById('schedtagList').classList.remove('show');
+            }
+        });
+
         function resetSubsequentDropdowns(ids) {
             ids.forEach(id => {
-                const el = document.getElementById(id);
-                if (id === 'filterSchedtag') {
-                    el.innerHTML = '<option value="">ALL SCHEDTAGS (OPTIONAL)</option>';
-                } else if (id === 'filterTerm') {
-                    el.innerHTML = '<option value="">SELECT TERM</option>';
+                if (id === 'schedtag') {
+                    document.getElementById('schedtagList').innerHTML = '';
+                    document.getElementById('schedtagBtn').disabled = true;
+                    document.getElementById('schedtagBtnLabel').innerText = 'SELECT SCHEDTAG';
                 } else {
-                    el.innerHTML = `<option value="">SELECT ${id.replace('filter', '').toUpperCase()}</option>`;
+                    const el = document.getElementById(id);
+                    if (id === 'filterTerm') {
+                        el.innerHTML = '<option value="">SELECT TERM</option>';
+                    } else {
+                        el.innerHTML = `<option value="">SELECT ${id.replace('filter', '').toUpperCase()}</option>`;
+                    }
+                    el.disabled = true;
                 }
-                el.disabled = true;
             });
 
             loadedStudentCount = 0;
@@ -765,10 +902,15 @@
             const term = document.getElementById('filterTerm').value;
             const branch = document.getElementById('filterBranch').value;
             const subject = document.getElementById('filterSubject').value;
-            const schedtag = document.getElementById('filterSchedtag').value;
+            const selectedSchedtags = getSelectedSchedtags();
 
             if (!sy || !sem || !term || !branch || !subject) {
                 alert('All required criteria (School Year, Semester, Term, Branch, and Subject) must be selected first!');
+                return;
+            }
+
+            if (selectedSchedtags.length === 0) {
+                alert('Please check at least one SCHEDTAG!');
                 return;
             }
 
@@ -777,24 +919,47 @@
             document.getElementById('printBtn').disabled = true;
             loadedStudentCount = 0;
 
-            let query = _supabase
-                .from('tblrecords')
-                .select('*')
-                .eq('teacherid', currentTeacher.teacherid)
-                .eq('schoolyear', sy)
-                .eq('semester', sem)
-                .ilike('schoolbranch', branch)
-                .ilike('subjects', subject)
-                .ilike('component', `%${term}%`);
+            let data = [];
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+            let fetchError = null;
 
-            if (schedtag) {
-                query = query.ilike('schedtag', schedtag);
+            while (hasMore) {
+                const from = page * pageSize;
+                const to = from + pageSize - 1;
+
+                const { data: pageData, error: pageError } = await _supabase
+                    .from('tblrecords')
+                    .select('*')
+                    .eq('teacherid', currentTeacher.teacherid)
+                    .eq('schoolyear', sy)
+                    .eq('semester', sem)
+                    .ilike('schoolbranch', branch)
+                    .ilike('subjects', subject)
+                    .ilike('component', `%${term}%`)
+                    .in('schedtag', selectedSchedtags)
+                    .range(from, to);
+
+                if (pageError) {
+                    fetchError = pageError;
+                    break;
+                }
+
+                if (pageData && pageData.length > 0) {
+                    data = data.concat(pageData);
+                    if (pageData.length < pageSize) {
+                        hasMore = false;
+                    } else {
+                        page++;
+                    }
+                } else {
+                    hasMore = false;
+                }
             }
 
-            const { data, error } = await query.range(0, 9999);
-
-            if (error) {
-                console.error('Error fetching sheet records:', error);
+            if (fetchError) {
+                console.error('Error fetching sheet records:', fetchError);
                 tbody.innerHTML = `<tr><td colspan="9" class="py-4 text-danger fw-bold">ERROR LOADING DATA FROM DATABASE.</td></tr>`;
                 return;
             }
@@ -860,7 +1025,18 @@
                 const q3 = extractGrade(comps, [`${term} QUIZ 3`, `${term} QUIZ #3`, `${term} QUIZ3`]);
                 const q4 = calculateQ4Summation(comps, term);
                 const qAve = extractGrade(comps, [`${term} QUIZ GRADE`, `${term} QUIZ AVE`, `${term} QUIZ AVERAGE`]);
-                const me = extractGrade(comps, [`${term} EXAMINATION GRADE`, `${term} EXAM`, `${term} MAJOR EXAM`]);
+                
+                // UPDATED ME LOOKUP: EXPLICITLY LOOKS FOR "PRELIM EXAMINATION GRADE", "MIDTERM EXAMINATION GRADE", OR "FINAL EXAMINATION GRADE"
+                const me = extractGrade(comps, [
+                    `${term} EXAMINATION GRADE`,
+                    `${term} EXAMINATION SCORE`,
+                    `${term} EXAM GRADE`,
+                    `${term} EXAM SCORE`,
+                    'PRELIM EXAMINATION GRADE',
+                    'MIDTERM EXAMINATION GRADE',
+                    'FINAL EXAMINATION GRADE'
+                ]);
+                
                 const finalGrade = extractGrade(comps, [`${term} GRADE`]);
 
                 tbody.innerHTML += `
