@@ -564,8 +564,8 @@
                                 <td>BSA2-A</td>
                                 <td>COMP1</td>
                                 <td>PRELIM QUIZ GRADE EQUIVALENT</td>
-                                <td>34.3</td>
-                                <td>2026-2027</td>
+                                <td>34.30</td>
+                            <td>2026-2027</td>
                                 <td>1</td>
                                 <td>LEGANES</td>
                             </tr>
@@ -620,8 +620,8 @@
                                 <td>BSA2-A</td>
                                 <td>COMP1</td>
                                 <td>PRELIM GRADE</td>
-                                <td>87</td>
-                                <td>2026-2027</td>
+                                <td>87.00</td>
+                            <td>2026-2027</td>
                                 <td>1</td>
                                 <td>LEGANES</td>
                             </tr>
@@ -795,6 +795,18 @@ const teacher = Auth.getUser();
 const GITHUB_USERNAME = 'svc1itsection-user'; 
 const GITHUB_REPO = 'svcportal';     
 const DOWNLOADS_FOLDER = 'Downloads';
+
+// Helper function to format numeric strings to 2 decimal places
+function formatResultValue(val) {
+    if (val === null || val === undefined) return '';
+    const strVal = String(val).trim();
+    if (strVal === '') return '';
+    const num = Number(strVal);
+    if (!isNaN(num) && !strVal.includes('/')) {
+        return num.toFixed(2);
+    }
+    return strVal;
+}
 
 async function fetchGitHubDownloads() {
     const tbody = document.getElementById('downloadablesTableBody');
@@ -1172,6 +1184,7 @@ function renderRecordsGrid(records) {
 
     tbody.innerHTML = '';
     records.forEach(r => {
+        const formattedRes = formatResultValue(r.result);
         let rowHtml = `
             <tr>
                 <td><input type="checkbox" value="${r.studentid}|${r.subjects}|${r.component}" class="form-check-input record-checkbox" onchange="updateDeleteButtonState()"></td>
@@ -1182,7 +1195,7 @@ function renderRecordsGrid(records) {
                 <td><span class="badge badge-blue px-2 py-1">${r.subjects || ''}</span></td>
                 <td class="text-dark fw-bold">${r.schedtag || ''}</td>
                 <td class="text-primary fw-bold">${r.component || ''}</td>
-                <td class="fw-bold text-success">${r.result || '-'}</td>
+                <td class="fw-bold text-success">${formattedRes || '-'}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-primary py-0 px-2" onclick="openEditRecordModal('${r.studentid}', '${r.subjects}')" title="Edit Row"><i class="bi bi-pencil"></i></button>
@@ -1231,7 +1244,7 @@ async function openEditRecordModal(studentId, subject) {
         const compMap = {};
         targetRecords.forEach(r => {
             if (r.component) {
-                compMap[r.component.toUpperCase()] = r.result || '';
+                compMap[r.component.toUpperCase()] = formatResultValue(r.result);
             }
         });
 
@@ -1306,7 +1319,8 @@ document.getElementById('editRecordForm').addEventListener('submit', async (e) =
 
     for (let input of compInputs) {
         const compName = (input.getAttribute('data-comp') || '').toUpperCase();
-        const newResult = input.value.trim().toUpperCase();
+        const rawResult = input.value.trim().toUpperCase();
+        const newResult = formatResultValue(rawResult);
         const existingCompRec = targetRecords ? targetRecords.find(r => (r.component || '').toUpperCase() === compName) : null;
 
         const payload = {
@@ -1531,6 +1545,7 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
                 const subName = row[6].toUpperCase();
                 const compName = row[7].toUpperCase();
                 const branchName = row[11] ? row[11].toUpperCase() : null;
+                const formattedResult = formatResultValue(row[8].toUpperCase());
 
                 const payload = {
                     studentid: stuId,
@@ -1541,7 +1556,7 @@ document.getElementById('uploadCsvForm').addEventListener('submit', async (e) =>
                     schedtag: row[5].toUpperCase(),
                     subjects: subName,
                     component: compName,
-                    result: row[8].toUpperCase(),
+                    result: formattedResult,
                     schoolyear: row[9].toUpperCase(),
                     semester: row[10].toUpperCase(),
                     schoolbranch: branchName
