@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SVC - Teacher Portal</title>
         
-            <!-- FAVICON / BROWSER TAB ICON -->
+    <!-- FAVICON / BROWSER TAB ICON -->
     <link rel="icon" type="image/png" href="../logo.png">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -260,15 +260,7 @@
             border-radius: 12px; padding: 0.5rem; max-height: 280px; overflow-y: auto; width: 100%; display: none; position: absolute; z-index: 1050; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15); top: 100%; left: 0; 
         }
         .comp-dropdown-menu.show { display: block; }
-        .accordion-header-btn { 
-            background: rgba(14, 165, 233, 0.12); 
-            border: 1px solid rgba(14, 165, 233, 0.3); 
-            color: #0284c7; width: 100%; text-align: left; padding: 0.4rem 0.6rem; font-weight: 700; border-radius: 8px; font-size: 0.8rem; margin-top: 4px; display: flex; justify-content: space-between; align-items: center; 
-        }
-        .accordion-header-btn:hover { background: rgba(14, 165, 233, 0.25); }
-        .accordion-item-list { display: none; padding-left: 0.5rem; margin-top: 4px; margin-bottom: 4px; }
-        .accordion-item-list.open { display: block; }
-        .comp-opt-item { padding: 0.3rem 0.6rem; color: #0f172a; cursor: pointer; border-radius: 6px; font-size: 0.825rem; font-weight: 600; }
+        .comp-opt-item { padding: 0.35rem 0.5rem; color: #0f172a; cursor: pointer; border-radius: 6px; font-size: 0.825rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         .comp-opt-item:hover { background: rgba(14, 165, 233, 0.15); color: #0284c7; }
 
         .spinner-overlay { 
@@ -281,6 +273,29 @@
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.9); 
             border-radius: 20px; color: #0f172a; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15); 
+        }
+
+        /* Categorized Accordion Dropdown Custom Styles */
+        .comp-accordion .accordion-item {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        .comp-accordion .accordion-button {
+            padding: 0.4rem 0.6rem;
+            font-size: 0.825rem;
+            font-weight: 700;
+            color: #0284c7;
+            background: rgba(14, 165, 233, 0.08);
+            box-shadow: none !important;
+        }
+        .comp-accordion .accordion-button:not(.collapsed) {
+            background: rgba(14, 165, 233, 0.15);
+            color: #0369a1;
+        }
+        .comp-accordion .accordion-body {
+            padding: 0.3rem;
+            background: #ffffff;
         }
 
         @media (max-width: 991.98px) {
@@ -565,7 +580,7 @@
                                 <td>COMP1</td>
                                 <td>PRELIM QUIZ GRADE EQUIVALENT</td>
                                 <td>34.30</td>
-                            <td>2026-2027</td>
+                                <td>2026-2027</td>
                                 <td>1</td>
                                 <td>LEGANES</td>
                             </tr>
@@ -621,7 +636,7 @@
                                 <td>COMP1</td>
                                 <td>PRELIM GRADE</td>
                                 <td>87.00</td>
-                            <td>2026-2027</td>
+                                <td>2026-2027</td>
                                 <td>1</td>
                                 <td>LEGANES</td>
                             </tr>
@@ -651,7 +666,7 @@
                     </div>
                     <div class="col-md-2">
                         <label class="form-label text-white small fw-bold">TERM / PERIOD *</label>
-                        <select id="filterTerm" class="form-select form-select-sm" onchange="validateSearchForm()">
+                        <select id="filterTerm" class="form-select form-select-sm" onchange="onTermFilterChange()">
                             <option value="">SELECT TERM</option>
                             <option value="ALL">ALL TERMS</option>
                             <option value="PRELIM">PRELIM</option>
@@ -673,7 +688,10 @@
                             <i class="bi bi-chevron-down"></i>
                         </div>
                         <div class="comp-dropdown-menu" id="compDropdownMenu">
-                            <div class="comp-opt-item fw-bold text-success" onclick="selectComponent('ALL')">ALL COMPONENTS</div>
+                            <div class="comp-opt-item fw-bold text-success border-bottom pb-2 mb-1" onclick="toggleAllComponents(this)">
+                                <input class="form-check-input my-0" type="checkbox" id="selectAllComponentsCheckbox" checked>
+                                <label class="form-check-label text-success pointer-event">ALL COMPONENTS</label>
+                            </div>
                             <div id="componentGroupContainer"></div>
                         </div>
                     </div>
@@ -723,13 +741,12 @@
                                 <th>BRANCH</th>
                                 <th>SUBJECT</th>
                                 <th>SCHEDTAG</th>
-                                <th>COMPONENT</th>
-                                <th>RESULT</th>
+                                <th id="thComponentHeader">COMPONENT / RESULT</th>
                                 <th>ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody id="gridTableBody">
-                            <tr><td colspan="10" class="text-secondary p-4">FILL IN ALL CRITERION ABOVE TO ACTIVATE AND EXECUTE SEARCH.</td></tr>
+                            <tr><td colspan="9" class="text-secondary p-4">FILL IN ALL CRITERION ABOVE TO ACTIVATE AND EXECUTE SEARCH.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -796,6 +813,11 @@ const GITHUB_USERNAME = 'svc1itsection-user';
 const GITHUB_REPO = 'svcportal';     
 const DOWNLOADS_FOLDER = 'Downloads';
 
+// Global variable to store all distinct fetched components
+let allFetchedComponents = [];
+// Store raw dataset results fetched from DB
+let lastQueryResult = [];
+
 // Helper function to format numeric strings to 2 decimal places
 function formatResultValue(val) {
     if (val === null || val === undefined) return '';
@@ -806,6 +828,54 @@ function formatResultValue(val) {
         return num.toFixed(2);
     }
     return strVal;
+}
+
+// CUSTOM COMPONENT SORTING FUNCTION IMPLEMENTATION
+function getComponentSortRank(compName) {
+    if (!compName) return 999;
+    const name = compName.trim().toUpperCase();
+
+    // Generate strict order maps per term
+    const createTermOrder = (term) => {
+        const orderMap = {};
+        let rank = 1;
+        // Quiz 1 to Quiz 10
+        for (let i = 1; i <= 10; i++) {
+            orderMap[`${term} QUIZ ${i}`] = rank++;
+        }
+        orderMap[`${term} QUIZ GRADE`] = rank++;
+        orderMap[`${term} QUIZ GRADE EQUIVALENT`] = rank++;
+        orderMap[`${term} EXAMINATION SCORE`] = rank++;
+        orderMap[`${term} EXAMINATION GRADE`] = rank++;
+        orderMap[`${term} EXAMINATION GRADE EQUIVALENT`] = rank++;
+        orderMap[`${term} GRADE`] = rank++;
+        return orderMap;
+    };
+
+    const prelimOrder = createTermOrder('PRELIM');
+    const midtermOrder = createTermOrder('MIDTERM');
+    const finalOrder = createTermOrder('FINAL');
+
+    if (name.includes('PRELIM')) {
+        return (prelimOrder[name] || 500);
+    }
+    if (name.includes('MIDTERM')) {
+        return 1000 + (midtermOrder[name] || 500);
+    }
+    if (name.includes('FINAL')) {
+        return 2000 + (finalOrder[name] || 500);
+    }
+
+    return 3000; // Catch-all for other components
+}
+
+function sortComponentsList(compArray) {
+    return compArray.sort((a, b) => {
+        const rankA = getComponentSortRank(a);
+        const rankB = getComponentSortRank(b);
+        if (rankA !== rankB) return rankA - rankB;
+        return a.localeCompare(b);
+    });
 }
 
 async function fetchGitHubDownloads() {
@@ -882,7 +952,7 @@ function handleLogout() {
     }, 300);
 }
 
-// AUTOMATIC UPPERCASE ENFORCEMENT ON ALL TEXT INPUTS (DYNAMIC & EXISTING)
+// AUTOMATIC UPPERCASE ENFORCEMENT ON ALL TEXT INPUTS
 function autoCapitalizeInputs() {
     document.addEventListener('input', function(e) {
         if (e.target && (e.target.tagName === 'INPUT' && e.target.type === 'text')) {
@@ -980,7 +1050,7 @@ async function loadTeacherDashboard(autoQueryStuId = null, autoSub = null) {
     showLoading(false);
     if (!error && data) {
         rawTeacherRecords = data;
-        populateFilterOptions();
+        await populateFilterOptions();
 
         if (autoQueryStuId) {
             if (autoSub) document.getElementById('filterSubject').value = autoSub;
@@ -993,13 +1063,14 @@ async function loadTeacherDashboard(autoQueryStuId = null, autoSub = null) {
     }
 }
 
-function populateFilterOptions() {
+// PAGINATED DATABASE QUERY TO BYPASS 1000-ROW LIMIT AND FETCH ALL DISTINCT COMPONENTS
+async function populateFilterOptions() {
     const subjectSelect = document.getElementById('filterSubject');
     const currentSubVal = subjectSelect.value;
     subjectSelect.innerHTML = '<option value="">SELECT SUBJECT</option>';
     
     const subjectsSet = new Set();
-    const prelims = [], midterms = [], finals = [], others = [];
+    const componentsSet = new Set();
 
     if (teacher.subjecthandled) {
         teacher.subjecthandled.split(',').forEach(sub => {
@@ -1008,54 +1079,180 @@ function populateFilterOptions() {
         });
     }
 
-    rawTeacherRecords.forEach(r => {
-        if (r.subjects) subjectsSet.add(r.subjects.toUpperCase());
-        const comp = r.component ? r.component.toUpperCase() : '';
-        if (comp.includes('PRELIM') && !prelims.includes(comp)) prelims.push(comp);
-        else if (comp.includes('MIDTERM') && !midterms.includes(comp)) midterms.push(comp);
-        else if (comp.includes('FINAL') && !finals.includes(comp)) finals.push(comp);
-        else if (comp && !others.includes(comp)) others.push(comp);
-    });
+    let from = 0;
+    const limit = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+        const { data: batch, error } = await _supabase
+            .from('tblrecords')
+            .select('subjects, component')
+            .eq('teacherid', teacher.teacherid)
+            .range(from, from + limit - 1);
+
+        if (error || !batch || batch.length === 0) {
+            hasMore = false;
+        } else {
+            batch.forEach(r => {
+                if (r.subjects) subjectsSet.add(r.subjects.toUpperCase());
+                if (r.component) componentsSet.add(r.component.toUpperCase());
+            });
+
+            if (batch.length < limit) {
+                hasMore = false;
+            } else {
+                from += limit;
+            }
+        }
+    }
+
+    if (componentsSet.size === 0 && rawTeacherRecords.length > 0) {
+        rawTeacherRecords.forEach(r => {
+            if (r.subjects) subjectsSet.add(r.subjects.toUpperCase());
+            if (r.component) componentsSet.add(r.component.toUpperCase());
+        });
+    }
 
     Array.from(subjectsSet).sort().forEach(s => {
         const isSelected = (s === currentSubVal) ? 'selected' : '';
         subjectSelect.innerHTML += `<option value="${s}" ${isSelected}>${s}</option>`;
     });
 
+    allFetchedComponents = sortComponentsList(Array.from(componentsSet));
+    renderComponentMenu();
+}
+
+function renderComponentMenu() {
     const groupContainer = document.getElementById('componentGroupContainer');
     groupContainer.innerHTML = '';
-    renderComponentGroup(groupContainer, 'PRELIM', 'accPrelim', prelims);
-    renderComponentGroup(groupContainer, 'MIDTERM', 'accMidterm', midterms);
-    renderComponentGroup(groupContainer, 'FINAL', 'accFinal', finals);
-    renderComponentGroup(groupContainer, 'OTHER', 'accOther', others);
+
+    const selectedTerm = (document.getElementById('filterTerm').value || '').trim().toUpperCase();
+
+    // Filter components dynamically based on Term selection
+    let filteredComps = allFetchedComponents;
+    if (selectedTerm && selectedTerm !== 'ALL') {
+        filteredComps = allFetchedComponents.filter(c => c.includes(selectedTerm));
+    }
+
+    if (filteredComps.length === 0) {
+        groupContainer.innerHTML = '<div class="p-2 text-muted small">NO COMPONENTS AVAILABLE</div>';
+        return;
+    }
+
+    // Categorize into PRELIM, MIDTERM, FINAL, and OTHERS
+    const categories = {
+        'PRELIM': [],
+        'MIDTERM': [],
+        'FINAL': [],
+        'OTHERS': []
+    };
+
+    filteredComps.forEach(comp => {
+        if (comp.includes('PRELIM')) categories['PRELIM'].push(comp);
+        else if (comp.includes('MIDTERM')) categories['MIDTERM'].push(comp);
+        else if (comp.includes('FINAL')) categories['FINAL'].push(comp);
+        else categories['OTHERS'].push(comp);
+    });
+
+    // Build Accordion UI with Checkboxes for each item
+    let accordionHtml = `<div class="accordion comp-accordion" id="compAccordionMenu">`;
+    let catIdx = 0;
+
+    for (const [catName, items] of Object.entries(categories)) {
+        if (items.length > 0) {
+            catIdx++;
+            const collapseId = `compCatCollapse_${catIdx}`;
+            const sortedItems = sortComponentsList(items);
+
+            accordionHtml += `
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+                            ${catName} (${sortedItems.length})
+                        </button>
+                    </h2>
+                    <div id="${collapseId}" class="accordion-collapse collapse show" data-bs-parent="#compAccordionMenu">
+                        <div class="accordion-body">
+            `;
+            
+            sortedItems.forEach(comp => {
+                accordionHtml += `
+                    <label class="comp-opt-item m-0 w-100" onclick="event.stopPropagation();">
+                        <input class="form-check-input comp-checkbox my-0" type="checkbox" value="${comp}" checked onchange="updateSelectedComponentsState()">
+                        <span>${comp}</span>
+                    </label>
+                `;
+            });
+
+            accordionHtml += `
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    accordionHtml += `</div>`;
+    groupContainer.innerHTML = accordionHtml;
+    updateSelectedComponentsState();
 }
 
-function renderComponentGroup(container, label, id, list) {
-    if (list.length === 0) return;
-    let itemsHtml = list.map(c => `<div class="comp-opt-item" onclick="selectComponent('${c}')">${c}</div>`).join('');
-    container.innerHTML += `
-        <button type="button" class="accordion-header-btn" onclick="toggleAccordionGroup(event, '${id}')">
-            ${label} <i class="bi bi-chevron-right"></i>
-        </button>
-        <div class="accordion-item-list" id="${id}">${itemsHtml}</div>`;
+function toggleAllComponents(container) {
+    const mainCb = document.getElementById('selectAllComponentsCheckbox');
+    const childCbs = document.querySelectorAll('.comp-checkbox');
+    childCbs.forEach(cb => cb.checked = mainCb.checked);
+    updateSelectedComponentsState();
 }
 
-function toggleComponentMenu(e) { e.stopPropagation(); document.getElementById('compDropdownMenu').classList.toggle('show'); }
+function updateSelectedComponentsState() {
+    const checked = Array.from(document.querySelectorAll('.comp-checkbox:checked')).map(c => c.value);
+    const allCbs = document.querySelectorAll('.comp-checkbox');
+    const mainCb = document.getElementById('selectAllComponentsCheckbox');
+    
+    if (mainCb) {
+        mainCb.checked = (checked.length === allCbs.length && allCbs.length > 0);
+    }
 
-function toggleAccordionGroup(e, targetId) {
-    e.stopPropagation();
-    const targetGroup = document.getElementById(targetId);
-    const isOpen = targetGroup.classList.contains('open');
-    document.querySelectorAll('.accordion-item-list').forEach(el => el.classList.remove('open'));
-    if (!isOpen) targetGroup.classList.add('open');
+    const hiddenInput = document.getElementById('selectedComponentInput');
+    const btnText = document.getElementById('selectedComponentText');
+
+    if (checked.length === 0) {
+        hiddenInput.value = '';
+        btnText.innerText = 'SELECT COMPONENT';
+    } else if (checked.length === allCbs.length) {
+        hiddenInput.value = 'ALL';
+        btnText.innerText = 'ALL COMPONENTS';
+    } else {
+        hiddenInput.value = checked.join(',');
+        btnText.innerText = `${checked.length} COMPONENTS SELECTED`;
+    }
+
+    validateSearchForm();
+
+    // Re-render records output grid dynamically if data is already loaded
+    if (lastQueryResult.length > 0) {
+        renderRecordsGrid(lastQueryResult);
+    }
 }
 
-function selectComponent(val) {
-    document.getElementById('selectedComponentInput').value = val;
-    document.getElementById('selectedComponentText').innerText = (!val) ? 'SELECT COMPONENT' : (val === 'ALL' ? 'ALL COMPONENTS' : val);
-    document.getElementById('compDropdownMenu').classList.remove('show');
+function onTermFilterChange() {
+    renderComponentMenu();
     validateSearchForm();
 }
+
+function toggleComponentMenu(e) { 
+    e.stopPropagation(); 
+    document.getElementById('compDropdownMenu').classList.toggle('show'); 
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(e) {
+    const menu = document.getElementById('compDropdownMenu');
+    const btn = document.querySelector('.comp-dropdown-btn');
+    if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+        menu.classList.remove('show');
+    }
+});
 
 // DIRECT DATABASE LIVE QUERY SEARCH EXECUTION
 async function executeUnifiedSearch() {
@@ -1063,10 +1260,10 @@ async function executeUnifiedSearch() {
     const sem = document.getElementById('filterSem').value;
     const term = document.getElementById('filterTerm').value;
     const sub = document.getElementById('filterSubject').value;
-    const comp = document.getElementById('selectedComponentInput').value;
+    const compVal = document.getElementById('selectedComponentInput').value;
     const query = (document.getElementById('unifiedSearchBox').value || '').trim();
 
-    if (!sy || !sem || !term || !sub || !comp || !query) {
+    if (!sy || !sem || !term || !sub || !compVal || !query) {
         showAlert("PLEASE FILL IN ALL CRITERION BEFORE SEARCHING.");
         return;
     }
@@ -1091,24 +1288,8 @@ async function executeUnifiedSearch() {
             dbQuery = dbQuery.ilike('subjects', sub);
         }
 
-        if (comp && comp !== 'ALL') {
-            dbQuery = dbQuery.ilike('component', comp);
-        }
-
         if (query) {
             dbQuery = dbQuery.or(`lastname.ilike.%${query}%,firstname.ilike.%${query}%,studentid.ilike.%${query}%,schedtag.ilike.%${query}%,course.ilike.%${query}%,schoolbranch.ilike.%${query}%`);
-        }
-
-        if (!comp || comp === 'ALL') {
-            dbQuery = dbQuery
-                .order('lastname', { ascending: true })
-                .order('firstname', { ascending: true })
-                .order('subjects', { ascending: true })
-                .order('component', { ascending: true });
-        } else {
-            dbQuery = dbQuery
-                .order('lastname', { ascending: true })
-                .order('firstname', { ascending: true });
         }
 
         const { data, error } = await dbQuery;
@@ -1132,28 +1313,8 @@ async function executeUnifiedSearch() {
             });
         }
 
-        if (!comp || comp === 'ALL') {
-            results.sort((a, b) => {
-                const compLast = (a.lastname || '').localeCompare(b.lastname || '');
-                if (compLast !== 0) return compLast;
-
-                const compFirst = (a.firstname || '').localeCompare(b.firstname || '');
-                if (compFirst !== 0) return compFirst;
-
-                const compSub = (a.subjects || '').localeCompare(b.subjects || '');
-                if (compSub !== 0) return compSub;
-
-                return (a.component || '').localeCompare(b.component || '');
-            });
-        } else {
-            results.sort((a, b) => {
-                const compLast = (a.lastname || '').localeCompare(b.lastname || '');
-                if (compLast !== 0) return compLast;
-                return (a.firstname || '').localeCompare(b.firstname || '');
-            });
-        }
-
-        renderRecordsGrid(results);
+        lastQueryResult = results;
+        renderRecordsGrid(lastQueryResult);
 
     } catch (err) {
         showLoading(false);
@@ -1162,44 +1323,100 @@ async function executeUnifiedSearch() {
     }
 }
 
-// DIRECT GRID RENDERING FOR EXACT COLUMNS & SHOWING RECORD COUNT
+// DIRECT GRID RENDERING WITH CHECKBOX-FILTERED OUTPUT
 function renderRecordsGrid(records) {
-    currentFilteredRecords = records;
     const tbody = document.getElementById('gridTableBody');
     const badge = document.getElementById('recordCountBadge');
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 
     if (selectAllCheckbox) selectAllCheckbox.checked = false;
 
-    const totalCount = records ? records.length : 0;
+    // Get array of checked components from dropdown
+    const checkedComponentVals = Array.from(document.querySelectorAll('.comp-checkbox:checked')).map(cb => cb.value);
 
-    badge.innerText = `RECORDS FOUND: ${totalCount}`;
-    badge.style.display = 'inline-block';
+    // Filter results according to selected checkboxes
+    let filteredRecords = records.filter(r => checkedComponentVals.includes((r.component || '').toUpperCase()));
 
-    if (!records || records.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="fw-bold p-4" style="color: #dc3545 !important;">NO RECORDS MATCHED THE SPECIFIED CRITERIA DIRECTLY IN DATABASE.</td></tr>`;
+    currentFilteredRecords = filteredRecords;
+
+    if (!filteredRecords || filteredRecords.length === 0) {
+        badge.innerText = `RECORDS FOUND: 0`;
+        badge.style.display = 'inline-block';
+        tbody.innerHTML = `<tr><td colspan="9" class="fw-bold p-4" style="color: #dc3545 !important;">NO RECORDS MATCHED THE SPECIFIED CHECKED COMPONENTS IN DATABASE.</td></tr>`;
         updateDeleteButtonState();
         return;
     }
 
+    // Group records by Student ID + Subject
+    const grouped = {};
+    filteredRecords.forEach(r => {
+        const key = `${r.studentid}_${r.subjects}`;
+        if (!grouped[key]) {
+            grouped[key] = {
+                studentid: r.studentid,
+                lastname: r.lastname,
+                firstname: r.firstname,
+                schoolbranch: r.schoolbranch,
+                subjects: r.subjects,
+                schedtag: r.schedtag,
+                components: []
+            };
+        }
+        grouped[key].components.push(r);
+    });
+
+    const studentKeys = Object.keys(grouped).sort((a, b) => {
+        const gA = grouped[a];
+        const gB = grouped[b];
+        const compLast = (gA.lastname || '').localeCompare(gB.lastname || '');
+        if (compLast !== 0) return compLast;
+        return (gA.firstname || '').localeCompare(gB.firstname || '');
+    });
+
+    badge.innerText = `RECORDS FOUND: ${studentKeys.length}`;
+    badge.style.display = 'inline-block';
+
     tbody.innerHTML = '';
-    records.forEach(r => {
-        const formattedRes = formatResultValue(r.result);
+    studentKeys.forEach(key => {
+        const group = grouped[key];
+        
+        // Sort individual student components by custom order rules
+        group.components.sort((a, b) => {
+            const rankA = getComponentSortRank(a.component);
+            const rankB = getComponentSortRank(b.component);
+            if (rankA !== rankB) return rankA - rankB;
+            return (a.component || '').localeCompare(b.component || '');
+        });
+
+        // Build Checkbox output for selected components
+        let compCheckboxesHtml = '<div class="d-flex flex-wrap gap-2 justify-content-center align-items-center">';
+        group.components.forEach(c => {
+            const formattedRes = formatResultValue(c.result);
+            compCheckboxesHtml += `
+                <div class="form-check form-check-inline border rounded px-2 py-1 bg-white shadow-sm m-0">
+                    <input class="form-check-input record-checkbox me-1" type="checkbox" value="${c.studentid}|${c.subjects}|${c.component}" onchange="updateDeleteButtonState()">
+                    <label class="form-check-label small fw-bold text-dark">
+                        ${c.component}: <span class="text-success">${formattedRes || '-'}</span>
+                    </label>
+                </div>
+            `;
+        });
+        compCheckboxesHtml += '</div>';
+
         let rowHtml = `
             <tr>
-                <td><input type="checkbox" value="${r.studentid}|${r.subjects}|${r.component}" class="form-check-input record-checkbox" onchange="updateDeleteButtonState()"></td>
-                <td class="fw-bold text-dark">${r.studentid || ''}</td>
-                <td class="text-dark fw-bold">${r.lastname || ''}</td>
-                <td class="text-dark">${r.firstname || ''}</td>
-                <td class="text-dark small fw-bold">${r.schoolbranch || '<span class="text-muted">-</span>'}</td>
-                <td><span class="badge badge-blue px-2 py-1">${r.subjects || ''}</span></td>
-                <td class="text-dark fw-bold">${r.schedtag || ''}</td>
-                <td class="text-primary fw-bold">${r.component || ''}</td>
-                <td class="fw-bold text-success">${formattedRes || '-'}</td>
+                <td>-</td>
+                <td class="fw-bold text-dark">${group.studentid || ''}</td>
+                <td class="text-dark fw-bold">${group.lastname || ''}</td>
+                <td class="text-dark">${group.firstname || ''}</td>
+                <td class="text-dark small fw-bold">${group.schoolbranch || '<span class="text-muted">-</span>'}</td>
+                <td><span class="badge badge-blue px-2 py-1">${group.subjects || ''}</span></td>
+                <td class="text-dark fw-bold">${group.schedtag || ''}</td>
+                <td class="text-start">${compCheckboxesHtml}</td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary py-0 px-2" onclick="openEditRecordModal('${r.studentid}', '${r.subjects}')" title="Edit Row"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-outline-danger py-0 px-2" onclick="deleteSingleRow('${r.studentid}', '${r.subjects}', '${r.component}')" title="Delete Row"><i class="bi bi-trash"></i></button>
+                        <button class="btn btn-outline-primary py-0 px-2" onclick="openEditRecordModal('${group.studentid}', '${group.subjects}')" title="Edit Student"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-outline-danger py-0 px-2" onclick="deleteSingleRow('${group.studentid}', '${group.subjects}', '')" title="Delete All Subject Records"><i class="bi bi-trash"></i></button>
                     </div>
                 </td>
             </tr>`;
@@ -1248,7 +1465,7 @@ async function openEditRecordModal(studentId, subject) {
             }
         });
 
-        const compKeys = Object.keys(compMap);
+        const compKeys = sortComponentsList(Object.keys(compMap));
         if (compKeys.length === 0) {
             compContainer.innerHTML = `<div class="col-12 text-muted small">NO COMPONENT GRADES RECORDED FOR THIS SUBJECT.</div>`;
         } else {
@@ -1381,7 +1598,7 @@ document.getElementById('editRecordForm').addEventListener('submit', async (e) =
 });
 
 async function deleteSingleRow(stuId, sub, comp) {
-    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE RECORD FOR STUDENT: ${stuId} (${sub} - ${comp})?`)) return;
+    if (!confirm(`ARE YOU SURE YOU WANT TO DELETE RECORD FOR STUDENT: ${stuId} (${sub}${comp ? ' - ' + comp : ''})?`)) return;
 
     showLoading(true, "DELETING RECORD...");
     let query = _supabase.from('tblrecords')
@@ -1410,7 +1627,7 @@ function toggleSelectAll(master) {
     updateDeleteButtonState();
 }
 
-// IN-DASHBOARD BATCH ASSIGN SCHOOL BRANCH FUNCTION (TARGETS ALL STUDENT COMPONENTS)
+// IN-DASHBOARD BATCH ASSIGN SCHOOL BRANCH FUNCTION
 async function assignBranchToSelected() {
     const checked = document.querySelectorAll('.record-checkbox:checked');
     const branchVal = (document.getElementById('batchBranchInput').value || '').trim().toUpperCase();
@@ -1427,7 +1644,6 @@ async function assignBranchToSelected() {
 
     showLoading(true, "UPDATING SCHOOL BRANCH FOR SELECTED STUDENTS...");
 
-    // Collect unique Student ID and Subject combinations from selected checkboxes
     const studentSubjectPairs = new Set();
     checked.forEach(cb => {
         const parts = cb.value.split('|');
@@ -1441,7 +1657,6 @@ async function assignBranchToSelected() {
     for (let pair of studentSubjectPairs) {
         const [stuId, sub] = pair.split('|');
 
-        // Update ALL component records for this student and subject
         const { error } = await _supabase.from('tblrecords')
             .update({ schoolbranch: branchVal })
             .eq('teacherid', teacher.teacherid)
