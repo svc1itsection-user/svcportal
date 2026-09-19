@@ -2,59 +2,531 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Activity Report - SVC</title>
         
-            <!-- FAVICON / BROWSER TAB ICON -->
+    <!-- FAVICON / BROWSER TAB ICON -->
     <link rel="icon" type="image/png" href="../logo.png">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../js/supabase-config.js"></script>
     <style>
-        body { background: #ffffff; color: #000; padding: 2rem; font-family: 'Segoe UI', sans-serif; }
-        @media print { .no-print { display: none !important; } }
+        body { 
+            background: #ffffff; 
+            color: #0f172a; 
+            padding: 2rem; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+        }
+        .filter-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .form-select {
+            font-weight: 600;
+            border-color: #cbd5e1;
+        }
+        .table th {
+            background-color: #f1f5f9;
+            color: #1e293b;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 6px;
+            white-space: nowrap;
+        }
+        .table td {
+            font-size: 0.72rem;
+            vertical-align: middle;
+            padding: 3px 6px;
+            white-space: nowrap;
+        }
+
+        /* PRINT MEDIA CONFIGURATION FOR 8.5" x 13" PAPER WITH 0.65" MARGINS */
+        @media print { 
+            @page {
+                size: 8.5in 13in;
+                margin: 0.65in;
+            }
+            body { 
+                padding: 0 !important; 
+                margin: 0 !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print { 
+                display: none !important; 
+            }
+            .filter-card { 
+                display: none !important; 
+            }
+            #reportHeader {
+                margin-bottom: 0.75rem !important;
+                padding-bottom: 0.5rem !important;
+            }
+            .table {
+                width: 100% !important;
+                table-layout: auto !important;
+                border-collapse: collapse !important;
+            }
+            .table th {
+                font-size: 0.75rem !important;
+                padding: 3px 5px !important;
+                background-color: #f1f5f9 !important;
+            }
+            .table td {
+                font-size: 0.65rem !important;
+                padding: 2px 4px !important;
+                white-space: nowrap !important;
+                line-height: 1.2 !important;
+            }
+        }
     </style>
 </head>
 <body>
-<div class="no-print mb-4 d-flex justify-content-end">
-    <button onclick="window.print()" class="btn btn-primary">Print Report</button>
+
+<div class="no-print mb-4 d-flex justify-content-between align-items-center">
+    <h4 class="fw-bold m-0 text-primary"><i class="bi bi-file-earmark-bar-graph me-2"></i>Subject Views & Activity Report</h4>
+    <button onclick="prepareAndPrintAll()" class="btn btn-primary px-4 fw-bold" id="printBtn">
+        <i class="bi bi-printer me-1"></i> Print Full Report
+    </button>
 </div>
-<div id="reportHeader" class="border-bottom pb-3 mb-4">
-    <h3 class="fw-bold m-0">ST. VINCENT COLLEGE</h3>
-    <h5>Student Activity & Grade Report</h5>
-    <p class="text-muted m-0" id="reportDate"></p>
+
+<!-- CASCADING CRITERIA FILTERS: SY -> SEM -> SUBJECT -> SCHEDTAG -->
+<div class="filter-card no-print">
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label fw-bold text-secondary small">1. SCHOOL YEAR</label>
+            <select id="filterSY" class="form-select" onchange="onSYChange()">
+                <option value="">-- SELECT SCHOOL YEAR --</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold text-secondary small">2. SEMESTER</label>
+            <select id="filterSem" class="form-select" onchange="onSemChange()" disabled>
+                <option value="">-- ALL SEMESTERS --</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold text-secondary small">3. SUBJECT</label>
+            <select id="filterSubject" class="form-select" onchange="onSubjectChange()" disabled>
+                <option value="">-- ALL SUBJECTS --</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold text-secondary small">4. SCHEDTAG</label>
+            <select id="filterSchedtag" class="form-select" onchange="onSchedtagChange()" disabled>
+                <option value="">-- ALL SCHEDTAGS --</option>
+            </select>
+        </div>
+    </div>
 </div>
-<table class="table table-bordered">
+
+<div id="reportHeader" class="border-bottom pb-3 mb-4 d-flex justify-content-between align-items-end">
+    <div>
+        <h3 class="fw-bold m-0">ST. VINCENT COLLEGE</h3>
+        <h5 class="text-secondary m-0">Student Subject Views Activity Audit</h5>
+        <div class="small text-muted mt-1" id="teacherInfo">Instructor ID: Loading...</div>
+    </div>
+    <div class="text-end">
+        <p class="text-muted m-0 small fw-bold" id="reportDate"></p>
+        <p class="text-muted m-0 small" id="recordCount">Total Logs: 0</p>
+    </div>
+</div>
+
+<table class="table table-bordered table-striped align-middle">
     <thead>
         <tr>
+            <th style="width: 35px;" class="text-center">#</th>
+            <th>Student Name</th>
             <th>Student ID</th>
             <th>Subject</th>
-            <th>Component</th>
-            <th>Result</th>
-            <th>SY / Term</th>
+            <th>Schedule Tag</th>
+            <th>SY / Semester</th>
+            <th>View Date</th>
+            <th>Last Viewed At</th>
         </tr>
     </thead>
     <tbody id="reportTable">
-        <tr><td colspan="5" class="text-center py-3">Loading full activity audit trail...</td></tr>
+        <tr><td colspan="8" class="text-center py-4 text-muted"><i class="bi bi-funnel me-1"></i> Please select a School Year to display student records.</td></tr>
     </tbody>
 </table>
+
+<!-- SERVER-SIDE PAGINATION CONTROLS -->
+<div class="no-print d-flex justify-content-between align-items-center mt-3" id="paginationControls" style="display: none !important;">
+    <div class="text-muted small" id="pageInfo">
+        Showing 0 to 0 of 0 records
+    </div>
+    <nav>
+        <ul class="pagination pagination-sm m-0">
+            <li class="page-item" id="prevPageBtn">
+                <button class="page-link" onclick="changePage(-1)"><i class="bi bi-chevron-left me-1"></i> Previous</button>
+            </li>
+            <li class="page-item disabled"><span class="page-link text-dark fw-bold" id="currentPageIndicator">Page 1</span></li>
+            <li class="page-item" id="nextPageBtn">
+                <button class="page-link" onclick="changePage(1)">Next <i class="bi bi-chevron-right ms-1"></i></button>
+            </li>
+        </ul>
+    </nav>
+</div>
+
 <script>
 Auth.requireAuth('teacher');
-document.getElementById('reportDate').innerText = `Generated on: ${new Date().toLocaleDateString()}`;
+const teacher = Auth.getUser();
 
-async function generateReport() {
-    const { data, error } = await _supabase.from('tblrecords').select('*').limit(100);
-    const tbody = document.getElementById('reportTable');
-    tbody.innerHTML = '';
-    if (error || !data) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Failed to generate activity report.</td></tr>`;
+document.getElementById('reportDate').innerText = `Generated on: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+document.getElementById('teacherInfo').innerText = `Instructor: ${teacher.firstname || ''} ${teacher.lastname || ''} (${teacher.teacherid || 'N/A'})`;
+
+// Pagination state variables
+const PAGE_SIZE = 50;
+let currentPage = 1;
+let totalRecords = 0;
+
+// Cached metadata for populating cascading dropdowns efficiently
+let distinctSYList = [];
+
+async function initializeReport() {
+    if (!teacher || !teacher.teacherid) {
+        document.getElementById('reportTable').innerHTML = `<tr><td colspan="8" class="text-center text-danger">Invalid teacher account or missing Teacher ID.</td></tr>`;
         return;
     }
-    data.forEach(r => {
-        tbody.innerHTML += `<tr><td>${r.studentid}</td><td>${r.subjects}</td><td>${r.component}</td><td>${r.result}</td><td>${r.schoolyear} (${r.semester})</td></tr>`;
+
+    // Fetch distinct School Years assigned to this teacher to populate the initial filter dropdown
+    const { data, error } = await _supabase
+        .from('tblsubjectviews')
+        .select('schoolyear')
+        .eq('teacherid', teacher.teacherid);
+
+    if (error) {
+        console.error("Error fetching school years:", error);
+        return;
+    }
+
+    distinctSYList = [...new Set((data || []).map(i => i.schoolyear).filter(Boolean))].sort().reverse();
+    populateSYDropdown();
+}
+
+function populateSYDropdown() {
+    const sySelect = document.getElementById('filterSY');
+    sySelect.innerHTML = '<option value="">-- SELECT SCHOOL YEAR --</option>';
+    distinctSYList.forEach(sy => {
+        sySelect.innerHTML += `<option value="${sy}">${sy}</option>`;
     });
 }
-generateReport();
+
+async function onSYChange() {
+    const selectedSY = document.getElementById('filterSY').value;
+    const semSelect = document.getElementById('filterSem');
+    const subjectSelect = document.getElementById('filterSubject');
+    const schedSelect = document.getElementById('filterSchedtag');
+
+    semSelect.innerHTML = '<option value="">-- ALL SEMESTERS --</option>';
+    subjectSelect.innerHTML = '<option value="">-- ALL SUBJECTS --</option>';
+    schedSelect.innerHTML = '<option value="">-- ALL SCHEDTAGS --</option>';
+
+    if (!selectedSY) {
+        semSelect.disabled = true;
+        subjectSelect.disabled = true;
+        schedSelect.disabled = true;
+    } else {
+        semSelect.disabled = false;
+        subjectSelect.disabled = true;
+        schedSelect.disabled = true;
+
+        // Fetch distinct semesters under selected SY
+        const { data } = await _supabase
+            .from('tblsubjectviews')
+            .select('semester')
+            .eq('teacherid', teacher.teacherid)
+            .eq('schoolyear', selectedSY);
+
+        const uniqueSem = [...new Set((data || []).map(item => item.semester).filter(Boolean))].sort();
+        uniqueSem.forEach(sem => {
+            semSelect.innerHTML += `<option value="${sem}">${getSemesterLabel(sem)}</option>`;
+        });
+    }
+
+    currentPage = 1;
+    fetchAndRenderReport();
+}
+
+async function onSemChange() {
+    const selectedSY = document.getElementById('filterSY').value;
+    const selectedSem = document.getElementById('filterSem').value;
+    const subjectSelect = document.getElementById('filterSubject');
+    const schedSelect = document.getElementById('filterSchedtag');
+
+    subjectSelect.innerHTML = '<option value="">-- ALL SUBJECTS --</option>';
+    schedSelect.innerHTML = '<option value="">-- ALL SCHEDTAGS --</option>';
+
+    if (!selectedSem) {
+        subjectSelect.disabled = true;
+        schedSelect.disabled = true;
+    } else {
+        subjectSelect.disabled = false;
+        schedSelect.disabled = true;
+
+        let query = _supabase.from('tblsubjectviews').select('subject').eq('teacherid', teacher.teacherid).eq('schoolyear', selectedSY);
+        if (selectedSem) query = query.eq('semester', selectedSem);
+
+        const { data } = await query;
+        const uniqueSubjects = [...new Set((data || []).map(item => item.subject).filter(Boolean))].sort();
+
+        uniqueSubjects.forEach(sub => {
+            subjectSelect.innerHTML += `<option value="${sub}">${sub}</option>`;
+        });
+    }
+
+    currentPage = 1;
+    fetchAndRenderReport();
+}
+
+async function onSubjectChange() {
+    const selectedSY = document.getElementById('filterSY').value;
+    const selectedSem = document.getElementById('filterSem').value;
+    const selectedSubject = document.getElementById('filterSubject').value;
+    const schedSelect = document.getElementById('filterSchedtag');
+
+    schedSelect.innerHTML = '<option value="">-- ALL SCHEDTAGS --</option>';
+
+    if (!selectedSubject) {
+        schedSelect.disabled = true;
+    } else {
+        schedSelect.disabled = false;
+
+        let query = _supabase.from('tblsubjectviews').select('schedtag')
+            .eq('teacherid', teacher.teacherid)
+            .eq('schoolyear', selectedSY)
+            .eq('subject', selectedSubject);
+            
+        if (selectedSem) query = query.eq('semester', selectedSem);
+
+        const { data } = await query;
+        const uniqueSchedtags = [...new Set((data || []).map(item => item.schedtag).filter(Boolean))].sort();
+
+        uniqueSchedtags.forEach(st => {
+            schedSelect.innerHTML += `<option value="${st}">${st}</option>`;
+        });
+    }
+
+    currentPage = 1;
+    fetchAndRenderReport();
+}
+
+function onSchedtagChange() {
+    currentPage = 1;
+    fetchAndRenderReport();
+}
+
+/* SERVER-SIDE PAGINATED QUERY & RENDER */
+
+async function fetchAndRenderReport() {
+    const selectedSY = document.getElementById('filterSY').value;
+    const selectedSem = document.getElementById('filterSem').value;
+    const selectedSubject = document.getElementById('filterSubject').value;
+    const selectedSchedtag = document.getElementById('filterSchedtag').value;
+    const tbody = document.getElementById('reportTable');
+    const paginationControls = document.getElementById('paginationControls');
+
+    // Prompt user if criteria is not selected
+    if (!selectedSY) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted"><i class="bi bi-funnel me-1"></i> Please select a School Year to display student records.</td></tr>`;
+        document.getElementById('recordCount').innerText = `Total Logs: 0`;
+        paginationControls.style.setProperty('display', 'none', 'important');
+        return;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Loading activity logs...</td></tr>`;
+
+    // Construct server-side paginated Supabase query
+    let query = _supabase
+        .from('tblsubjectviews')
+        .select('*', { count: 'exact' })
+        .eq('teacherid', teacher.teacherid)
+        .eq('schoolyear', selectedSY);
+
+    if (selectedSem) query = query.eq('semester', selectedSem);
+    if (selectedSubject) query = query.eq('subject', selectedSubject);
+    if (selectedSchedtag) query = query.eq('schedtag', selectedSchedtag);
+
+    // Calculate range offset for server-side pagination
+    const startRange = (currentPage - 1) * PAGE_SIZE;
+    const endRange = startRange + PAGE_SIZE - 1;
+
+    query = query
+        .order('lastname', { ascending: true, nullsFirst: false })
+        .order('firstname', { ascending: true, nullsFirst: false })
+        .range(startRange, endRange);
+
+    const { data, count, error } = await query;
+
+    if (error) {
+        console.error("Error loading report:", error);
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Failed to fetch student activity report.</td></tr>`;
+        return;
+    }
+
+    totalRecords = count || 0;
+    document.getElementById('recordCount').innerText = `Total Logs: ${totalRecords}`;
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No matching activity records found for the selected criteria.</td></tr>`;
+        paginationControls.style.setProperty('display', 'none', 'important');
+        return;
+    }
+
+    // Render current page rows
+    tbody.innerHTML = '';
+    data.forEach((r, index) => {
+        const recordNum = startRange + index + 1;
+        const fullName = (r.lastname || r.firstname) 
+            ? `<strong>${(r.lastname || '').toUpperCase()}</strong>, ${(r.firstname || '').toUpperCase()}`
+            : 'N/A';
+
+        const viewedDate = r.view_date || (r.viewed_at ? r.viewed_at.split('T')[0] : 'N/A');
+        const viewedTime = r.viewed_at ? new Date(r.viewed_at).toLocaleTimeString() : 'N/A';
+
+        tbody.innerHTML += `
+            <tr>
+                <td class="text-center fw-bold text-secondary">${recordNum}</td>
+                <td>${fullName}</td>
+                <td class="fw-bold">${r.studentid || 'N/A'}</td>
+                <td>${r.subject || 'N/A'}</td>
+                <td>${r.schedtag || 'N/A'}</td>
+                <td>${r.schoolyear || 'N/A'} (${getSemesterLabel(r.semester)})</td>
+                <td>${viewedDate}</td>
+                <td><small class="text-muted">${viewedTime}</small></td>
+            </tr>`;
+    });
+
+    updatePaginationUI(startRange, data.length);
+}
+
+function updatePaginationUI(startRange, currentBatchLength) {
+    const paginationControls = document.getElementById('paginationControls');
+    paginationControls.style.setProperty('display', 'flex', 'important');
+
+    const totalPages = Math.ceil(totalRecords / PAGE_SIZE) || 1;
+    const endRange = startRange + currentBatchLength;
+
+    document.getElementById('pageInfo').innerText = `Showing ${startRange + 1} to ${endRange} of ${totalRecords} records`;
+    document.getElementById('currentPageIndicator').innerText = `Page ${currentPage} of ${totalPages}`;
+
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+
+    if (currentPage <= 1) {
+        prevBtn.classList.add('disabled');
+    } else {
+        prevBtn.classList.remove('disabled');
+    }
+
+    if (currentPage >= totalPages) {
+        nextBtn.classList.add('disabled');
+    } else {
+        nextBtn.classList.remove('disabled');
+    }
+}
+
+function changePage(delta) {
+    const totalPages = Math.ceil(totalRecords / PAGE_SIZE) || 1;
+    const newPage = currentPage + delta;
+
+    if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
+        fetchAndRenderReport();
+    }
+}
+
+/* FULL PRINT HANDLER: FETCHES ALL MATCHING RECORDS ON DEMAND BEFORE PRINTING */
+
+async function prepareAndPrintAll() {
+    const selectedSY = document.getElementById('filterSY').value;
+    const selectedSem = document.getElementById('filterSem').value;
+    const selectedSubject = document.getElementById('filterSubject').value;
+    const selectedSchedtag = document.getElementById('filterSchedtag').value;
+    const tbody = document.getElementById('reportTable');
+    const printBtn = document.getElementById('printBtn');
+
+    if (!selectedSY) {
+        alert("Please select a School Year first before printing.");
+        return;
+    }
+
+    const originalBtnText = printBtn.innerHTML;
+    printBtn.disabled = true;
+    printBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Preparing Print...`;
+
+    // Fetch ALL records matching the current criteria without pagination limits
+    let query = _supabase
+        .from('tblsubjectviews')
+        .select('*')
+        .eq('teacherid', teacher.teacherid)
+        .eq('schoolyear', selectedSY);
+
+    if (selectedSem) query = query.eq('semester', selectedSem);
+    if (selectedSubject) query = query.eq('subject', selectedSubject);
+    if (selectedSchedtag) query = query.eq('schedtag', selectedSchedtag);
+
+    query = query
+        .order('lastname', { ascending: true, nullsFirst: false })
+        .order('firstname', { ascending: true, nullsFirst: false });
+
+    const { data, error } = await query;
+
+    if (error || !data || data.length === 0) {
+        alert("Failed to fetch full record list for printing.");
+        printBtn.disabled = false;
+        printBtn.innerHTML = originalBtnText;
+        return;
+    }
+
+    // Populate all filtered rows into the DOM temporarily
+    tbody.innerHTML = '';
+    data.forEach((r, index) => {
+        const fullName = (r.lastname || r.firstname) 
+            ? `<strong>${(r.lastname || '').toUpperCase()}</strong>, ${(r.firstname || '').toUpperCase()}`
+            : 'N/A';
+
+        const viewedDate = r.view_date || (r.viewed_at ? r.viewed_at.split('T')[0] : 'N/A');
+        const viewedTime = r.viewed_at ? new Date(r.viewed_at).toLocaleTimeString() : 'N/A';
+
+        tbody.innerHTML += `
+            <tr>
+                <td class="text-center fw-bold text-secondary">${index + 1}</td>
+                <td>${fullName}</td>
+                <td class="fw-bold">${r.studentid || 'N/A'}</td>
+                <td>${r.subject || 'N/A'}</td>
+                <td>${r.schedtag || 'N/A'}</td>
+                <td>${r.schoolyear || 'N/A'} (${getSemesterLabel(r.semester)})</td>
+                <td>${viewedDate}</td>
+                <td><small class="text-muted">${viewedTime}</small></td>
+            </tr>`;
+    });
+
+    // Launch print dialog
+    window.print();
+
+    // Revert button and restore paginated DOM view
+    printBtn.disabled = false;
+    printBtn.innerHTML = originalBtnText;
+    fetchAndRenderReport();
+}
+
+function getSemesterLabel(sem) {
+    if (sem == '1' || sem === 'First Semester') return 'First Semester';
+    if (sem == '2' || sem === 'Second Semester') return 'Second Semester';
+    if (sem == '3' || sem === 'Summer') return 'Summer';
+    return sem || 'N/A';
+}
+
+initializeReport();
 </script>
 </body>
 </html>
