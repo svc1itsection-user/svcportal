@@ -98,16 +98,16 @@
     </button>
 </div>
 
-<!-- CASCADING CRITERIA FILTERS: SY -> SEM -> SUBJECT -> SCHEDTAG -->
+<!-- CASCADING CRITERIA FILTERS: SY -> SEM -> SUBJECT -> SCHEDTAG -> BRANCH -->
 <div class="filter-card no-print">
     <div class="row g-3">
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label class="form-label fw-bold text-secondary small">1. SCHOOL YEAR</label>
             <select id="filterSY" class="form-select" onchange="onSYChange()">
-                <option value="">-- SELECT SCHOOL YEAR --</option>
+                <option value="">-- SELECT SY --</option>
             </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label class="form-label fw-bold text-secondary small">2. SEMESTER</label>
             <select id="filterSem" class="form-select" onchange="onSemChange()" disabled>
                 <option value="">-- ALL SEMESTERS --</option>
@@ -123,6 +123,12 @@
             <label class="form-label fw-bold text-secondary small">4. SCHEDTAG</label>
             <select id="filterSchedtag" class="form-select" onchange="onSchedtagChange()" disabled>
                 <option value="">-- ALL SCHEDTAGS --</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold text-secondary small">5. SCHOOL BRANCH</label>
+            <select id="filterBranch" class="form-select" onchange="onBranchChange()" disabled>
+                <option value="">-- ALL BRANCHES --</option>
             </select>
         </div>
     </div>
@@ -144,8 +150,8 @@
     <thead>
         <tr>
             <th style="width: 35px;" class="text-center">#</th>
+            <th>Branch</th>
             <th>Student Name</th>
-            <th>Student ID</th>
             <th>Subject</th>
             <th>Schedule Tag</th>
             <th>SY / Semester</th>
@@ -197,7 +203,7 @@ async function initializeReport() {
         return;
     }
 
-    // Fetch distinct School Years assigned to this teacher to populate the initial filter dropdown
+    // Fetch distinct School Years assigned to this teacher
     const { data, error } = await _supabase
         .from('tblsubjectviews')
         .select('schoolyear')
@@ -214,7 +220,7 @@ async function initializeReport() {
 
 function populateSYDropdown() {
     const sySelect = document.getElementById('filterSY');
-    sySelect.innerHTML = '<option value="">-- SELECT SCHOOL YEAR --</option>';
+    sySelect.innerHTML = '<option value="">-- SELECT SY --</option>';
     distinctSYList.forEach(sy => {
         sySelect.innerHTML += `<option value="${sy}">${sy}</option>`;
     });
@@ -225,19 +231,23 @@ async function onSYChange() {
     const semSelect = document.getElementById('filterSem');
     const subjectSelect = document.getElementById('filterSubject');
     const schedSelect = document.getElementById('filterSchedtag');
+    const branchSelect = document.getElementById('filterBranch');
 
     semSelect.innerHTML = '<option value="">-- ALL SEMESTERS --</option>';
     subjectSelect.innerHTML = '<option value="">-- ALL SUBJECTS --</option>';
     schedSelect.innerHTML = '<option value="">-- ALL SCHEDTAGS --</option>';
+    branchSelect.innerHTML = '<option value="">-- ALL BRANCHES --</option>';
 
     if (!selectedSY) {
         semSelect.disabled = true;
         subjectSelect.disabled = true;
         schedSelect.disabled = true;
+        branchSelect.disabled = true;
     } else {
         semSelect.disabled = false;
         subjectSelect.disabled = true;
         schedSelect.disabled = true;
+        branchSelect.disabled = true;
 
         // Fetch distinct semesters under selected SY
         const { data } = await _supabase
@@ -261,16 +271,20 @@ async function onSemChange() {
     const selectedSem = document.getElementById('filterSem').value;
     const subjectSelect = document.getElementById('filterSubject');
     const schedSelect = document.getElementById('filterSchedtag');
+    const branchSelect = document.getElementById('filterBranch');
 
     subjectSelect.innerHTML = '<option value="">-- ALL SUBJECTS --</option>';
     schedSelect.innerHTML = '<option value="">-- ALL SCHEDTAGS --</option>';
+    branchSelect.innerHTML = '<option value="">-- ALL BRANCHES --</option>';
 
     if (!selectedSem) {
         subjectSelect.disabled = true;
         schedSelect.disabled = true;
+        branchSelect.disabled = true;
     } else {
         subjectSelect.disabled = false;
         schedSelect.disabled = true;
+        branchSelect.disabled = true;
 
         let query = _supabase.from('tblsubjectviews').select('subject').eq('teacherid', teacher.teacherid).eq('schoolyear', selectedSY);
         if (selectedSem) query = query.eq('semester', selectedSem);
@@ -292,13 +306,17 @@ async function onSubjectChange() {
     const selectedSem = document.getElementById('filterSem').value;
     const selectedSubject = document.getElementById('filterSubject').value;
     const schedSelect = document.getElementById('filterSchedtag');
+    const branchSelect = document.getElementById('filterBranch');
 
     schedSelect.innerHTML = '<option value="">-- ALL SCHEDTAGS --</option>';
+    branchSelect.innerHTML = '<option value="">-- ALL BRANCHES --</option>';
 
     if (!selectedSubject) {
         schedSelect.disabled = true;
+        branchSelect.disabled = true;
     } else {
         schedSelect.disabled = false;
+        branchSelect.disabled = true;
 
         let query = _supabase.from('tblsubjectviews').select('schedtag')
             .eq('teacherid', teacher.teacherid)
@@ -319,7 +337,41 @@ async function onSubjectChange() {
     fetchAndRenderReport();
 }
 
-function onSchedtagChange() {
+async function onSchedtagChange() {
+    const selectedSY = document.getElementById('filterSY').value;
+    const selectedSem = document.getElementById('filterSem').value;
+    const selectedSubject = document.getElementById('filterSubject').value;
+    const selectedSchedtag = document.getElementById('filterSchedtag').value;
+    const branchSelect = document.getElementById('filterBranch');
+
+    branchSelect.innerHTML = '<option value="">-- ALL BRANCHES --</option>';
+
+    if (!selectedSchedtag) {
+        branchSelect.disabled = true;
+    } else {
+        branchSelect.disabled = false;
+
+        let query = _supabase.from('tblsubjectviews').select('schoolbranch')
+            .eq('teacherid', teacher.teacherid)
+            .eq('schoolyear', selectedSY)
+            .eq('subject', selectedSubject)
+            .eq('schedtag', selectedSchedtag);
+            
+        if (selectedSem) query = query.eq('semester', selectedSem);
+
+        const { data } = await query;
+        const uniqueBranches = [...new Set((data || []).map(item => item.schoolbranch).filter(Boolean))].sort();
+
+        uniqueBranches.forEach(br => {
+            branchSelect.innerHTML += `<option value="${br}">${br}</option>`;
+        });
+    }
+
+    currentPage = 1;
+    fetchAndRenderReport();
+}
+
+function onBranchChange() {
     currentPage = 1;
     fetchAndRenderReport();
 }
@@ -331,6 +383,7 @@ async function fetchAndRenderReport() {
     const selectedSem = document.getElementById('filterSem').value;
     const selectedSubject = document.getElementById('filterSubject').value;
     const selectedSchedtag = document.getElementById('filterSchedtag').value;
+    const selectedBranch = document.getElementById('filterBranch').value;
     const tbody = document.getElementById('reportTable');
     const paginationControls = document.getElementById('paginationControls');
 
@@ -354,6 +407,7 @@ async function fetchAndRenderReport() {
     if (selectedSem) query = query.eq('semester', selectedSem);
     if (selectedSubject) query = query.eq('subject', selectedSubject);
     if (selectedSchedtag) query = query.eq('schedtag', selectedSchedtag);
+    if (selectedBranch) query = query.eq('schoolbranch', selectedBranch);
 
     // Calculate range offset for server-side pagination
     const startRange = (currentPage - 1) * PAGE_SIZE;
@@ -391,12 +445,13 @@ async function fetchAndRenderReport() {
 
         const viewedDate = r.view_date || (r.viewed_at ? r.viewed_at.split('T')[0] : 'N/A');
         const viewedTime = r.viewed_at ? new Date(r.viewed_at).toLocaleTimeString() : 'N/A';
+        const branchName = r.schoolbranch || 'Main';
 
         tbody.innerHTML += `
             <tr>
                 <td class="text-center fw-bold text-secondary">${recordNum}</td>
+                <td><span class="badge bg-light text-dark border">${branchName}</span></td>
                 <td>${fullName}</td>
-                <td class="fw-bold">${r.studentid || 'N/A'}</td>
                 <td>${r.subject || 'N/A'}</td>
                 <td>${r.schedtag || 'N/A'}</td>
                 <td>${r.schoolyear || 'N/A'} (${getSemesterLabel(r.semester)})</td>
@@ -451,6 +506,7 @@ async function prepareAndPrintAll() {
     const selectedSem = document.getElementById('filterSem').value;
     const selectedSubject = document.getElementById('filterSubject').value;
     const selectedSchedtag = document.getElementById('filterSchedtag').value;
+    const selectedBranch = document.getElementById('filterBranch').value;
     const tbody = document.getElementById('reportTable');
     const printBtn = document.getElementById('printBtn');
 
@@ -473,6 +529,7 @@ async function prepareAndPrintAll() {
     if (selectedSem) query = query.eq('semester', selectedSem);
     if (selectedSubject) query = query.eq('subject', selectedSubject);
     if (selectedSchedtag) query = query.eq('schedtag', selectedSchedtag);
+    if (selectedBranch) query = query.eq('schoolbranch', selectedBranch);
 
     query = query
         .order('lastname', { ascending: true, nullsFirst: false })
@@ -496,12 +553,13 @@ async function prepareAndPrintAll() {
 
         const viewedDate = r.view_date || (r.viewed_at ? r.viewed_at.split('T')[0] : 'N/A');
         const viewedTime = r.viewed_at ? new Date(r.viewed_at).toLocaleTimeString() : 'N/A';
+        const branchName = r.schoolbranch || 'Main';
 
         tbody.innerHTML += `
             <tr>
                 <td class="text-center fw-bold text-secondary">${index + 1}</td>
+                <td>${branchName}</td>
                 <td>${fullName}</td>
-                <td class="fw-bold">${r.studentid || 'N/A'}</td>
                 <td>${r.subject || 'N/A'}</td>
                 <td>${r.schedtag || 'N/A'}</td>
                 <td>${r.schoolyear || 'N/A'} (${getSemesterLabel(r.semester)})</td>
