@@ -352,7 +352,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 Auth.requireAuth('student');
-const student = Auth.getUser();
+let student = Auth.getUser();
 
 function setupStudentAvatar() {
     const fn = (student.firstname || '').trim();
@@ -381,15 +381,49 @@ const cardThemes = [
     'background: linear-gradient(135deg, rgba(52, 211, 153, 0.95) 0%, rgba(5, 150, 105, 0.95) 85%); border-color: rgba(255, 255, 255, 0.6); box-shadow: 0 8px 24px rgba(16, 185, 129, 0.22);'
 ];
 
-/* DEDUPLICATED AUDIT LOG HELPER FUNCTION WITH LASTNAME, FIRSTNAME, & SCHEDTAG */
-async function logSubjectView(subjectName, schoolYear, semester, teacherId, schedTag) {
+/* DIRECT HELPER TO ENSURE SCHOOLBRANCH IS FETCHED BEFORE LOGGING */
+async function fetchCurrentStudentSchoolBranch() {
+    if (student && student.schoolbranch) {
+        return student.schoolbranch;
+    }
+    
+    if (student && student.studentid) {
+        // Attempt to fetch schoolbranch directly from tblstudentuser
+        const { data: userData } = await _supabase
+            .from('tblstudentuser')
+            .select('schoolbranch')
+            .eq('studentid', student.studentid)
+            .maybeSingle();
+
+        if (userData && userData.schoolbranch) {
+            student.schoolbranch = userData.schoolbranch;
+            // Optionally store it back to session storage
+            try {
+                const sessionData = JSON.parse(localStorage.getItem('student') || '{}');
+                sessionData.schoolbranch = userData.schoolbranch;
+                localStorage.setItem('student', JSON.stringify(sessionData));
+            } catch(e) {}
+            return userData.schoolbranch;
+        }
+    }
+    return null;
+}
+
+/* AUDIT LOG HELPER FUNCTION WITH GUARANTEED SCHOOLBRANCH SAVING */
+async function logSubjectView(subjectName, schoolYear, semester, teacherId, schedTag, schoolBranchParam) {
     if (!student || !student.studentid || !subjectName) return;
 
     const today = new Date().toISOString().split('T')[0];
     const logKey = `${student.studentid}_${subjectName}_${schedTag || ''}_${today}`;
     
-    // Prevent duplicated calls within the current session
+    // Prevent duplicate logs within the current session
     if (loggedSubjectsSet.has(logKey)) return;
+
+    // Resolve branch prioritizing parameter -> fetched student object -> direct DB lookup
+    let branchToLog = schoolBranchParam || student.schoolbranch || null;
+    if (!branchToLog) {
+        branchToLog = await fetchCurrentStudentSchoolBranch();
+    }
 
     try {
         const { error } = await _supabase
@@ -399,6 +433,7 @@ async function logSubjectView(subjectName, schoolYear, semester, teacherId, sche
                     studentid: student.studentid,
                     lastname: student.lastname || null,
                     firstname: student.firstname || null,
+                    schoolbranch: branchToLog,
                     subject: subjectName,
                     schedtag: schedTag || null,
                     schoolyear: schoolYear || null,
@@ -411,6 +446,8 @@ async function logSubjectView(subjectName, schoolYear, semester, teacherId, sche
 
         if (!error) {
             loggedSubjectsSet.add(logKey);
+        } else {
+            console.error("Supabase upsert error:", error.message);
         }
     } catch (err) {
         console.error("Failed to log subject view:", err);
@@ -518,6 +555,9 @@ async function initializeDashboard() {
     showLoading(true, "LOADING STUDENT DASHBOARD...");
     setupStudentAvatar();
     
+    // Ensure schoolbranch is fetched right away at start
+    await fetchCurrentStudentSchoolBranch();
+    
     const [recordsRes, teachersRes] = await Promise.all([
         _supabase.from('tblrecords')
             .select('*')
@@ -565,11 +605,11 @@ function populateDropdowns() {
     });
 }
 
-function renderAllSubjects() {
+async function renderAllSubjects() {
     document.getElementById('welcomeMessage').style.display = 'none';
     buildCards(rawRecords);
 
-    // Deduplicate unique subjects with schedule tags before logging
+    // Filter to get one unique record per subject + schedule tag
     const uniqueSubjects = {};
     rawRecords.forEach(r => {
         const key = `${r.subjects}_${r.schedtag || ''}`;
@@ -578,20 +618,23 @@ function renderAllSubjects() {
         }
     });
 
-    Object.values(uniqueSubjects).forEach(record => {
-        logSubjectView(
+    // Fire log calls concurrently for each unique subject
+    for (const record of Object.values(uniqueSubjects)) {
+        await logSubjectView(
             record.subjects, 
             record.schoolyear, 
             record.semester, 
             record.teacherid,
-            record.schedtag
+            record.schedtag,
+            record.schoolbranch || null
         );
-    });
+    }
 }
 
-function renderFiltered(type, p1, p2) {
+async function renderFiltered(type, p1, p2) {
     document.getElementById('welcomeMessage').style.display = 'none';
     let filtered = [];
+
     if (type === 'TERM') {
         filtered = rawRecords.filter(r => r.schoolyear === p1 && String(r.semester) === String(p2));
         
@@ -600,18 +643,20 @@ function renderFiltered(type, p1, p2) {
             const key = `${r.subjects}_${r.schedtag || ''}`;
             if (!uniqueTermSubjects[key]) uniqueTermSubjects[key] = r;
         });
-        Object.values(uniqueTermSubjects).forEach(rec => {
-            logSubjectView(rec.subjects, rec.schoolyear, rec.semester, rec.teacherid, rec.schedtag);
-        });
+
+        for (const rec of Object.values(uniqueTermSubjects)) {
+            await logSubjectView(rec.subjects, rec.schoolyear, rec.semester, rec.teacherid, rec.schedtag, rec.schoolbranch || null);
+        }
     } else if (type === 'SUBJECT') {
         filtered = rawRecords.filter(r => r.subjects === p1);
         if (filtered.length > 0) {
-            logSubjectView(
+            await logSubjectView(
                 filtered[0].subjects, 
                 filtered[0].schoolyear, 
                 filtered[0].semester, 
                 filtered[0].teacherid,
-                filtered[0].schedtag
+                filtered[0].schedtag,
+                filtered[0].schoolbranch || null
             );
         }
     }
@@ -634,6 +679,7 @@ function buildCards(recordsToDisplay) {
                 sem: r.semester, 
                 teacherid: r.teacherid, 
                 schedtag: r.schedtag,
+                schoolbranch: r.schoolbranch || null,
                 records: [] 
             };
         }
@@ -672,7 +718,7 @@ function buildCards(recordsToDisplay) {
         });
 
         let html = `
-        <div id="${cardId}" class="glass-card-subject p-3" style="${theme}" data-teacher-id="${group.teacherid}" data-schedtag="${group.schedtag || ''}">
+        <div id="${cardId}" class="glass-card-subject p-3" style="${theme}" data-teacher-id="${group.teacherid}" data-schedtag="${group.schedtag || ''}" data-schoolbranch="${group.schoolbranch || ''}">
             <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-white border-opacity-25 flex-wrap gap-2">
                 <div>
                     <h5 class="fw-bold m-0 text-white subject-title-glow"><i class="bi bi-journal-check me-2"></i>${group.subject}</h5>
@@ -742,7 +788,7 @@ function buildColumn(title, dataGroup, icon, colorClass, cardId) {
     return `<div class="col-lg-3 col-md-6 mb-2"><div class="group-panel"><div class="group-panel-title ${colorClass}"><i class="bi ${icon} me-1"></i> ${title}</div>${content}</div></div>`;
 }
 
-function toggleTermRecords(el) {
+async function toggleTermRecords(el) {
     const recordsDiv = el.nextElementSibling;
     const isExpanding = recordsDiv.style.display !== 'block';
 
@@ -756,9 +802,10 @@ function toggleTermRecords(el) {
             const subjectName = subjectHeader ? subjectHeader.innerText.trim() : null;
             const teacherId = card.getAttribute('data-teacher-id');
             const schedTag = card.getAttribute('data-schedtag');
+            const schoolBranch = card.getAttribute('data-schoolbranch');
 
             if (subjectName) {
-                logSubjectView(subjectName, null, null, teacherId, schedTag);
+                await logSubjectView(subjectName, null, null, teacherId, schedTag, schoolBranch);
             }
         }
     } else { 
