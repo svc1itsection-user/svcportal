@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SVC - Student Portal</title>
         
-            <!-- FAVICON / BROWSER TAB ICON -->
+    <!-- FAVICON / BROWSER TAB ICON -->
     <link rel="icon" type="image/png" href="../logo.png">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -16,7 +16,6 @@
     <style>
         :root { --sidebar-width: 280px; }
 
-        /* 1. Light Ambient Canvas with Soft Radial Glow Backgrounds */
         body { 
             background-color: #f1f5f9; 
             background-image: 
@@ -39,7 +38,6 @@
 
         .app-wrapper { display: flex; min-height: 100vh; }
 
-        /* Sidebar Glassmorphic Styling */
         .sidebar {
             width: var(--sidebar-width); 
             background: rgba(15, 23, 42, 0.85); 
@@ -109,7 +107,6 @@
         .content-panel { display: none; position: relative; z-index: 2; }
         .content-panel.active-panel { display: block; }
         
-        /* Glassmorphism Card Panels */
         .glass-card { 
             background: rgba(255, 255, 255, 0.65); 
             backdrop-filter: blur(18px); 
@@ -138,7 +135,6 @@
 
         #welcomeMessage, .glass-card-subject { position: relative; z-index: 1 !important; }
 
-        /* Subject Cards Frosted Styling */
         .glass-card-subject { 
             backdrop-filter: blur(18px); 
             -webkit-backdrop-filter: blur(18px);
@@ -162,7 +158,6 @@
         .subgroup-header-clickable.active .toggle-icon { transform: rotate(180deg); }
         .term-records-collapse { display: none; padding-left: 4px; padding-right: 4px; margin-bottom: 6px; }
 
-        /* Controls & Buttons */
         .form-control, .form-select { 
             background: rgba(255, 255, 255, 0.75) !important; 
             border: 1px solid rgba(255, 255, 255, 0.85) !important; 
@@ -209,7 +204,6 @@
     <div class="fw-bold fs-5 text-dark" id="loadingText">PROCESSING REQUEST...</div>
 </div>
 
-<!-- Center-Screen Popup Alert Modal -->
 <div class="modal fade" id="alertModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-glass p-3 text-center">
@@ -360,7 +354,6 @@
 Auth.requireAuth('student');
 const student = Auth.getUser();
 
-// SETUP INITIALS FOR AVATAR LOGO
 function setupStudentAvatar() {
     const fn = (student.firstname || '').trim();
     const ln = (student.lastname || '').trim();
@@ -377,7 +370,9 @@ let teacherMap = {};
 let chartInstances = {};
 let chartMasterData = {};
 
-// Vibrant Ocean Glass Theme Gradients
+// In-memory set to prevent repeated duplicate API calls during the current session pageview
+const loggedSubjectsSet = new Set();
+
 const cardThemes = [
     'background: linear-gradient(135deg, rgba(14, 165, 233, 0.95) 0%, rgba(16, 185, 129, 0.95) 85%); border-color: rgba(255, 255, 255, 0.6); box-shadow: 0 8px 24px rgba(14, 165, 233, 0.22);',
     'background: linear-gradient(135deg, rgba(56, 189, 248, 0.92) 0%, rgba(37, 99, 235, 0.92) 85%); border-color: rgba(255, 255, 255, 0.6); box-shadow: 0 8px 24px rgba(37, 99, 235, 0.22);',
@@ -385,6 +380,42 @@ const cardThemes = [
     'background: linear-gradient(135deg, rgba(251, 146, 60, 0.95) 0%, rgba(234, 88, 12, 0.95) 85%); border-color: rgba(255, 255, 255, 0.6); box-shadow: 0 8px 24px rgba(234, 88, 12, 0.22);',
     'background: linear-gradient(135deg, rgba(52, 211, 153, 0.95) 0%, rgba(5, 150, 105, 0.95) 85%); border-color: rgba(255, 255, 255, 0.6); box-shadow: 0 8px 24px rgba(16, 185, 129, 0.22);'
 ];
+
+/* DEDUPLICATED AUDIT LOG HELPER FUNCTION WITH LASTNAME, FIRSTNAME, & SCHEDTAG */
+async function logSubjectView(subjectName, schoolYear, semester, teacherId, schedTag) {
+    if (!student || !student.studentid || !subjectName) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const logKey = `${student.studentid}_${subjectName}_${schedTag || ''}_${today}`;
+    
+    // Prevent duplicated calls within the current session
+    if (loggedSubjectsSet.has(logKey)) return;
+
+    try {
+        const { error } = await _supabase
+            .from('tblsubjectviews')
+            .upsert([
+                {
+                    studentid: student.studentid,
+                    lastname: student.lastname || null,
+                    firstname: student.firstname || null,
+                    subject: subjectName,
+                    schedtag: schedTag || null,
+                    schoolyear: schoolYear || null,
+                    semester: semester || null,
+                    teacherid: teacherId || null,
+                    view_date: today,
+                    viewed_at: new Date().toISOString()
+                }
+            ], { onConflict: 'studentid, subject, schedtag, view_date' });
+
+        if (!error) {
+            loggedSubjectsSet.add(logKey);
+        }
+    } catch (err) {
+        console.error("Failed to log subject view:", err);
+    }
+}
 
 function showAlert(msg) {
     document.getElementById('alertModalBody').innerText = msg;
@@ -537,13 +568,53 @@ function populateDropdowns() {
 function renderAllSubjects() {
     document.getElementById('welcomeMessage').style.display = 'none';
     buildCards(rawRecords);
+
+    // Deduplicate unique subjects with schedule tags before logging
+    const uniqueSubjects = {};
+    rawRecords.forEach(r => {
+        const key = `${r.subjects}_${r.schedtag || ''}`;
+        if (!uniqueSubjects[key]) {
+            uniqueSubjects[key] = r;
+        }
+    });
+
+    Object.values(uniqueSubjects).forEach(record => {
+        logSubjectView(
+            record.subjects, 
+            record.schoolyear, 
+            record.semester, 
+            record.teacherid,
+            record.schedtag
+        );
+    });
 }
 
 function renderFiltered(type, p1, p2) {
     document.getElementById('welcomeMessage').style.display = 'none';
     let filtered = [];
-    if (type === 'TERM') filtered = rawRecords.filter(r => r.schoolyear === p1 && String(r.semester) === String(p2));
-    else if (type === 'SUBJECT') filtered = rawRecords.filter(r => r.subjects === p1);
+    if (type === 'TERM') {
+        filtered = rawRecords.filter(r => r.schoolyear === p1 && String(r.semester) === String(p2));
+        
+        const uniqueTermSubjects = {};
+        filtered.forEach(r => {
+            const key = `${r.subjects}_${r.schedtag || ''}`;
+            if (!uniqueTermSubjects[key]) uniqueTermSubjects[key] = r;
+        });
+        Object.values(uniqueTermSubjects).forEach(rec => {
+            logSubjectView(rec.subjects, rec.schoolyear, rec.semester, rec.teacherid, rec.schedtag);
+        });
+    } else if (type === 'SUBJECT') {
+        filtered = rawRecords.filter(r => r.subjects === p1);
+        if (filtered.length > 0) {
+            logSubjectView(
+                filtered[0].subjects, 
+                filtered[0].schoolyear, 
+                filtered[0].semester, 
+                filtered[0].teacherid,
+                filtered[0].schedtag
+            );
+        }
+    }
     buildCards(filtered);
 }
 
@@ -555,20 +626,20 @@ function buildCards(recordsToDisplay) {
 
     const grouped = {};
     recordsToDisplay.forEach(r => {
-        const key = `${r.subjects}_${r.schoolyear}_${r.semester}`;
+        const key = `${r.subjects}_${r.schoolyear}_${r.semester}_${r.schedtag || ''}`;
         if (!grouped[key]) {
             grouped[key] = { 
                 subject: r.subjects, 
                 sy: r.schoolyear, 
                 sem: r.semester, 
                 teacherid: r.teacherid, 
+                schedtag: r.schedtag,
                 records: [] 
             };
         }
         grouped[key].records.push(r);
     });
 
-    // SORT CARDS ALPHABETICALLY (A-Z) BY SUBJECT NAME
     const sortedGroups = Object.values(grouped).sort((a, b) => 
         (a.subject || '').localeCompare(b.subject || '')
     );
@@ -601,7 +672,7 @@ function buildCards(recordsToDisplay) {
         });
 
         let html = `
-        <div id="${cardId}" class="glass-card-subject p-3" style="${theme}">
+        <div id="${cardId}" class="glass-card-subject p-3" style="${theme}" data-teacher-id="${group.teacherid}" data-schedtag="${group.schedtag || ''}">
             <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-white border-opacity-25 flex-wrap gap-2">
                 <div>
                     <h5 class="fw-bold m-0 text-white subject-title-glow"><i class="bi bi-journal-check me-2"></i>${group.subject}</h5>
@@ -647,16 +718,12 @@ function buildCards(recordsToDisplay) {
 
 function buildColumn(title, dataGroup, icon, colorClass, cardId) {
     let content = '';
-    
-    // SORT PERIOD KEYS ALPHABETICALLY (A-Z) (e.g., FINALS, MIDTERM, PRELIM)
     const keys = Object.keys(dataGroup).sort();
 
     if (keys.length === 0) content = `<div class="text-secondary fw-semibold text-center fs-7 py-3">NO DATA</div>`;
     else {
         keys.forEach(period => {
             let rows = '';
-            
-            // SORT INDIVIDUAL ITEMS ALPHABETICALLY (A-Z) BY COMPONENT NAME
             const sortedItems = [...dataGroup[period]].sort((a, b) => 
                 (a.component || '').localeCompare(b.component || '')
             );
@@ -677,8 +744,28 @@ function buildColumn(title, dataGroup, icon, colorClass, cardId) {
 
 function toggleTermRecords(el) {
     const recordsDiv = el.nextElementSibling;
-    if (recordsDiv.style.display !== 'block') { recordsDiv.style.display = 'block'; el.classList.add('active'); }
-    else { recordsDiv.style.display = 'none'; el.classList.remove('active'); }
+    const isExpanding = recordsDiv.style.display !== 'block';
+
+    if (isExpanding) { 
+        recordsDiv.style.display = 'block'; 
+        el.classList.add('active'); 
+
+        const card = el.closest('.glass-card-subject');
+        if (card) {
+            const subjectHeader = card.querySelector('h5');
+            const subjectName = subjectHeader ? subjectHeader.innerText.trim() : null;
+            const teacherId = card.getAttribute('data-teacher-id');
+            const schedTag = card.getAttribute('data-schedtag');
+
+            if (subjectName) {
+                logSubjectView(subjectName, null, null, teacherId, schedTag);
+            }
+        }
+    } else { 
+        recordsDiv.style.display = 'none'; 
+        el.classList.remove('active'); 
+    }
+    
     updateChartDisplay(el.getAttribute('data-card-id'));
 }
 
