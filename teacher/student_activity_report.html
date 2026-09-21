@@ -36,13 +36,13 @@
             font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            padding: 4px 6px;
+            padding: 6px 8px;
             white-space: nowrap;
         }
         .table td {
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             vertical-align: middle;
-            padding: 3px 6px;
+            padding: 5px 8px;
             white-space: nowrap;
         }
 
@@ -77,12 +77,12 @@
             }
             .table th {
                 font-size: 0.75rem !important;
-                padding: 3px 5px !important;
+                padding: 4px 6px !important;
                 background-color: #f1f5f9 !important;
             }
             .table td {
-                font-size: 0.65rem !important;
-                padding: 2px 4px !important;
+                font-size: 0.7rem !important;
+                padding: 3px 5px !important;
                 white-space: nowrap !important;
                 line-height: 1.2 !important;
             }
@@ -142,7 +142,7 @@
     </div>
     <div class="text-end">
         <p class="text-muted m-0 small fw-bold" id="reportDate"></p>
-        <p class="text-muted m-0 small" id="recordCount">Total Logs: 0</p>
+        <p class="text-muted m-0 small" id="recordCount">Total Records: 0</p>
     </div>
 </div>
 
@@ -155,12 +155,10 @@
             <th>Subject</th>
             <th>Schedule Tag</th>
             <th>SY / Semester</th>
-            <th>View Date</th>
-            <th>Last Viewed At</th>
         </tr>
     </thead>
     <tbody id="reportTable">
-        <tr><td colspan="8" class="text-center py-4 text-muted"><i class="bi bi-funnel me-1"></i> Please select a School Year to display student records.</td></tr>
+        <tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-funnel me-1"></i> Please select a School Year to display student records.</td></tr>
     </tbody>
 </table>
 
@@ -199,7 +197,7 @@ let distinctSYList = [];
 
 async function initializeReport() {
     if (!teacher || !teacher.teacherid) {
-        document.getElementById('reportTable').innerHTML = `<tr><td colspan="8" class="text-center text-danger">Invalid teacher account or missing Teacher ID.</td></tr>`;
+        document.getElementById('reportTable').innerHTML = `<tr><td colspan="6" class="text-center text-danger">Invalid teacher account or missing Teacher ID.</td></tr>`;
         return;
     }
 
@@ -376,7 +374,7 @@ function onBranchChange() {
     fetchAndRenderReport();
 }
 
-/* SERVER-SIDE PAGINATED QUERY & RENDER */
+/* SERVER-SIDE PAGINATED QUERY & RENDER WITH DISTINCT STUDENT PER SUBJECT */
 
 async function fetchAndRenderReport() {
     const selectedSY = document.getElementById('filterSY').value;
@@ -389,15 +387,14 @@ async function fetchAndRenderReport() {
 
     // Prompt user if criteria is not selected
     if (!selectedSY) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted"><i class="bi bi-funnel me-1"></i> Please select a School Year to display student records.</td></tr>`;
-        document.getElementById('recordCount').innerText = `Total Logs: 0`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted"><i class="bi bi-funnel me-1"></i> Please select a School Year to display student records.</td></tr>`;
+        document.getElementById('recordCount').innerText = `Total Records: 0`;
         paginationControls.style.setProperty('display', 'none', 'important');
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Loading activity logs...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Loading activity logs...</td></tr>`;
 
-    // Construct server-side paginated Supabase query
     let query = _supabase
         .from('tblsubjectviews')
         .select('*', { count: 'exact' })
@@ -409,7 +406,6 @@ async function fetchAndRenderReport() {
     if (selectedSchedtag) query = query.eq('schedtag', selectedSchedtag);
     if (selectedBranch) query = query.eq('schoolbranch', selectedBranch);
 
-    // Calculate range offset for server-side pagination
     const startRange = (currentPage - 1) * PAGE_SIZE;
     const endRange = startRange + PAGE_SIZE - 1;
 
@@ -422,29 +418,40 @@ async function fetchAndRenderReport() {
 
     if (error) {
         console.error("Error loading report:", error);
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Failed to fetch student activity report.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Failed to fetch student activity report.</td></tr>`;
         return;
     }
 
-    totalRecords = count || 0;
-    document.getElementById('recordCount').innerText = `Total Logs: ${totalRecords}`;
+    // Filter data to ensure distinct student name per subject
+    const seen = new Set();
+    const uniqueData = [];
+    (data || []).forEach(r => {
+        const studentKey = `${(r.lastname || '').trim().toLowerCase()}_${(r.firstname || '').trim().toLowerCase()}`;
+        const subjectKey = (r.subject || '').trim().toLowerCase();
+        const uniqueKey = `${studentKey}_${subjectKey}`;
+        if (!seen.has(uniqueKey)) {
+            seen.add(uniqueKey);
+            uniqueData.push(r);
+        }
+    });
 
-    if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No matching activity records found for the selected criteria.</td></tr>`;
+    totalRecords = count || 0;
+    document.getElementById('recordCount').innerText = `Total Records: ${totalRecords}`;
+
+    if (uniqueData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No matching activity records found for the selected criteria.</td></tr>`;
         paginationControls.style.setProperty('display', 'none', 'important');
         return;
     }
 
     // Render current page rows
     tbody.innerHTML = '';
-    data.forEach((r, index) => {
+    uniqueData.forEach((r, index) => {
         const recordNum = startRange + index + 1;
         const fullName = (r.lastname || r.firstname) 
             ? `<strong>${(r.lastname || '').toUpperCase()}</strong>, ${(r.firstname || '').toUpperCase()}`
             : 'N/A';
 
-        const viewedDate = r.view_date || (r.viewed_at ? r.viewed_at.split('T')[0] : 'N/A');
-        const viewedTime = r.viewed_at ? new Date(r.viewed_at).toLocaleTimeString() : 'N/A';
         const branchName = r.schoolbranch || 'Main';
 
         tbody.innerHTML += `
@@ -455,12 +462,10 @@ async function fetchAndRenderReport() {
                 <td>${r.subject || 'N/A'}</td>
                 <td>${r.schedtag || 'N/A'}</td>
                 <td>${r.schoolyear || 'N/A'} (${getSemesterLabel(r.semester)})</td>
-                <td>${viewedDate}</td>
-                <td><small class="text-muted">${viewedTime}</small></td>
             </tr>`;
     });
 
-    updatePaginationUI(startRange, data.length);
+    updatePaginationUI(startRange, uniqueData.length);
 }
 
 function updatePaginationUI(startRange, currentBatchLength) {
@@ -499,7 +504,7 @@ function changePage(delta) {
     }
 }
 
-/* FULL PRINT HANDLER: FETCHES ALL MATCHING RECORDS ON DEMAND BEFORE PRINTING */
+/* FULL PRINT HANDLER: FETCHES ALL MATCHING RECORDS WITH DISTINCT STUDENT PER SUBJECT */
 
 async function prepareAndPrintAll() {
     const selectedSY = document.getElementById('filterSY').value;
@@ -519,7 +524,6 @@ async function prepareAndPrintAll() {
     printBtn.disabled = true;
     printBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Preparing Print...`;
 
-    // Fetch ALL records matching the current criteria without pagination limits
     let query = _supabase
         .from('tblsubjectviews')
         .select('*')
@@ -537,22 +541,31 @@ async function prepareAndPrintAll() {
 
     const { data, error } = await query;
 
-    if (error || !data || data.length === 0) {
+    if (error || !data) {
         alert("Failed to fetch full record list for printing.");
         printBtn.disabled = false;
         printBtn.innerHTML = originalBtnText;
         return;
     }
 
-    // Populate all filtered rows into the DOM temporarily
+    const seen = new Set();
+    const uniqueData = [];
+    data.forEach(r => {
+        const studentKey = `${(r.lastname || '').trim().toLowerCase()}_${(r.firstname || '').trim().toLowerCase()}`;
+        const subjectKey = (r.subject || '').trim().toLowerCase();
+        const uniqueKey = `${studentKey}_${subjectKey}`;
+        if (!seen.has(uniqueKey)) {
+            seen.add(uniqueKey);
+            uniqueData.push(r);
+        }
+    });
+
     tbody.innerHTML = '';
-    data.forEach((r, index) => {
+    uniqueData.forEach((r, index) => {
         const fullName = (r.lastname || r.firstname) 
             ? `<strong>${(r.lastname || '').toUpperCase()}</strong>, ${(r.firstname || '').toUpperCase()}`
             : 'N/A';
 
-        const viewedDate = r.view_date || (r.viewed_at ? r.viewed_at.split('T')[0] : 'N/A');
-        const viewedTime = r.viewed_at ? new Date(r.viewed_at).toLocaleTimeString() : 'N/A';
         const branchName = r.schoolbranch || 'Main';
 
         tbody.innerHTML += `
@@ -563,15 +576,11 @@ async function prepareAndPrintAll() {
                 <td>${r.subject || 'N/A'}</td>
                 <td>${r.schedtag || 'N/A'}</td>
                 <td>${r.schoolyear || 'N/A'} (${getSemesterLabel(r.semester)})</td>
-                <td>${viewedDate}</td>
-                <td><small class="text-muted">${viewedTime}</small></td>
             </tr>`;
     });
 
-    // Launch print dialog
     window.print();
 
-    // Revert button and restore paginated DOM view
     printBtn.disabled = false;
     printBtn.innerHTML = originalBtnText;
     fetchAndRenderReport();
